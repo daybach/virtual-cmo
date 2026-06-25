@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Virtual CMO — Live Meeting Co-Pilot</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{--ink:#0E1116;--ink2:#151A21;--ink3:#1B212A;--paper:#F4F1E8;--inkp:#1B1A15;--rule:#DBD3C2;--paperline:#ECE5D5;--patina:#2E7D6B;--glow:#5BBFA4;--dim:#21564B;--ember:#C9633C;--amber:#D8A24A;--on:#E9E7E0;--ond:#9298A1;--onf:#646B75;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ink);color:var(--on);font-family:'IBM Plex Sans',system-ui,sans-serif}
+body{min-height:100vh;font-size:15px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;color:inherit;background:none;border:none}
+.app{max-width:1180px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,#11161D,#0E1116);border-bottom:1px solid var(--hair);padding:11px 18px}
+.hdr-row{display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:9px;font-family:'Newsreader',serif;font-size:18px;white-space:nowrap}
+.brand .mk{width:24px;height:24px;border:1.5px solid var(--glow);border-radius:50%;color:var(--glow);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.switch{display:flex;gap:3px;background:var(--ink3);border-radius:9px;padding:3px;margin-left:4px}
+.switch button{font-size:12.5px;padding:7px 13px;border-radius:7px;color:var(--ond);white-space:nowrap}
+.switch button.on{background:var(--ink);color:var(--glow)}
+.facsel{background:var(--ink3);border:1px solid var(--hair2);color:var(--on);border-radius:8px;padding:6px 9px;font-size:12px;font-family:inherit;max-width:188px;margin-left:6px;cursor:pointer}
+.facsel:focus{outline:none;border-color:var(--patina)}
+.ptbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.ptbl th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ond);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--hair2);text-align:center}
+.ptbl td{padding:8px;border-bottom:1px solid var(--hair);text-align:center}
+.ptbl tbody tr:hover{background:var(--ink)}
+.live{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ember);font-weight:500;white-space:nowrap;margin-left:auto}
+.live .dot{width:7px;height:7px;border-radius:50%;background:var(--ember);animation:pulse 1.4s infinite}
+.live.paused{color:var(--onf)}.live.paused .dot{background:var(--onf);animation:none}
+.clock{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--on);white-space:nowrap}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.mtitle{margin-top:9px}
+.mtitle .t1{font-size:13.5px;font-weight:600}
+.mtitle .t2{font-size:11px;color:var(--ond);font-family:'IBM Plex Mono',monospace;margin-top:1px}
+.attendees{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.chip{font-size:10.5px;padding:3px 9px;border-radius:20px;background:var(--ink3);color:var(--ond);border:1px solid var(--hair);white-space:nowrap}
+.chip b{color:var(--on);font-weight:500}
+.chip.cmo{background:rgba(46,125,107,.14);border-color:var(--dim);color:var(--glow)}
+.chip.cmo b{color:var(--glow)}
+.grid{flex:1;display:grid;grid-template-columns:1fr 400px;gap:14px;padding:14px 18px 130px}
+@media(max-width:880px){.grid{grid-template-columns:1fr;padding:12px 12px 165px}}
+.panel{background:var(--ink2);border:1px solid var(--hair);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.ph{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--hair);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--onf);font-family:'IBM Plex Mono',monospace}
+.ph .badge{margin-left:auto;font-size:10px;color:var(--ond);letter-spacing:.04em}
+.transcript{background:var(--paper);color:var(--inkp);padding:8px 0;min-height:340px;max-height:60vh;overflow-y:auto}
+@media(max-width:880px){.transcript{max-height:44vh}}
+.line{padding:9px 18px;border-bottom:1px solid var(--paperline);animation:fade .5s ease}
+.line:last-child{border-bottom:none}
+.line .who{font-size:11px;font-weight:600;color:#46412f;display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.line .who .role{font-weight:400;color:#928c79}
+.line .who .tm{font-family:'IBM Plex Mono',monospace;font-size:10px;margin-left:auto;color:#aaa291}
+.line .say{font-family:'Newsreader',serif;font-size:16.5px;line-height:1.5;color:var(--inkp)}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.agenda-head{display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--hair)}
+.ring{position:relative;width:34px;height:34px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--glow)}
+.agenda-head .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--onf);font-family:'IBM Plex Mono',monospace}
+.agenda-head .sub{font-size:11px;color:var(--ond);margin-top:1px}
+.agenda{padding:6px 0;max-height:300px;overflow-y:auto}
+.aitem{display:flex;align-items:flex-start;gap:10px;padding:8px 15px;font-size:13px;transition:background .3s}
+.aitem .box{width:17px;height:17px;border-radius:5px;border:1.6px solid #39414c;flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .35s}
+.aitem.covered .box{background:var(--patina);border-color:var(--patina);color:#06130f}
+.aitem.partial .box{background:transparent;border-color:var(--amber);color:var(--amber)}
+.aitem.missed .box{background:transparent;border-color:var(--ember);color:var(--ember)}
+.aitem.active{background:rgba(91,191,164,.06)}
+.aitem .txt{color:var(--ond);transition:color .35s}
+.aitem.covered .txt{color:var(--on)}
+.aitem.missed .txt{color:#e8b9a6}
+.aitem .tag{display:block;font-size:10px;color:var(--onf);font-family:'IBM Plex Mono',monospace;margin-top:1px}
+.aitem.missed .tag{color:var(--ember)}
+.feed{padding:12px;display:flex;flex-direction:column;gap:11px;max-height:480px;overflow-y:auto}
+.empty{color:var(--onf);font-size:12.5px;text-align:center;padding:24px 12px;font-style:italic}
+.thinking{display:flex;align-items:center;gap:9px;color:var(--glow);font-size:12px;font-family:'IBM Plex Mono',monospace;padding:4px 2px}
+.thinking .sh{display:flex;gap:3px}
+.thinking .sh i{width:5px;height:5px;border-radius:50%;background:var(--glow);animation:bob 1s infinite}
+.thinking .sh i:nth-child(2){animation-delay:.15s}.thinking .sh i:nth-child(3){animation-delay:.3s}
+@keyframes bob{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.card{background:var(--ink3);border:1px solid var(--hair);border-radius:11px;padding:12px 13px;animation:slidein .45s ease}
+@keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+.card .ct{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:var(--glow);display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.mname{font-size:14px;font-weight:600;color:var(--on)}
+.bar{height:7px;border-radius:4px;background:#2a313b;margin:9px 0 5px;position:relative;overflow:hidden}
+.bar .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--ember),var(--amber))}
+.bar.ok .fill{background:linear-gradient(90deg,var(--dim),var(--glow))}
+.marks{display:flex;justify-content:space-between;font-size:10px;color:var(--ond);font-family:'IBM Plex Mono',monospace}
+.ftags{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0}
+.ft{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:2px 7px;border-radius:5px;background:rgba(201,99,60,.13);color:#e0a184;border:1px solid rgba(201,99,60,.25)}
+.ft.q{background:rgba(46,125,107,.13);color:var(--glow);border-color:rgba(91,191,164,.25)}
+.read{font-family:'Newsreader',serif;font-style:italic;font-size:13.5px;line-height:1.5;color:#cfd3da;border-left:2px solid var(--dim);padding-left:10px;margin-top:8px}
+.card.alert{border-left:3px solid var(--amber)}
+.card.alert .ct{color:var(--amber)}
+.card.nudge{background:rgba(46,125,107,.08);border-color:var(--dim);border-left:3px solid var(--patina)}
+.card.nudge .ntext{font-size:13.5px;line-height:1.5;color:#dfe3e6}
+.card.nudge .ntext b{color:var(--glow);font-weight:600}
+.card.live{border-left:3px solid var(--glow);background:rgba(91,191,164,.06)}
+.card.live .lq{font-family:'Newsreader',serif;font-style:italic;color:#9aa0a8;font-size:13px;margin-bottom:6px}
+.card.live .la{font-size:13.5px;line-height:1.55;color:#dfe3e6;white-space:pre-wrap}
+.card.intervene{background:rgba(201,99,60,.10);border:1px solid rgba(201,99,60,.4);border-left:3px solid var(--ember);box-shadow:0 6px 26px rgba(201,99,60,.13)}
+.card.intervene .ct{color:#e8916a}
+.card.intervene .ititle{font-size:14px;font-weight:600;color:#f0c3b0;margin-bottom:7px}
+.card.intervene ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.card.intervene li{font-size:13px;line-height:1.5;color:#e9d3c8;padding-left:16px;position:relative}
+.card.intervene li:before{content:"▸";position:absolute;left:0;color:var(--ember)}
+.card.intervene li b{color:#fff;font-weight:600}
+.deliver{margin-top:10px;font-size:11px;font-family:'IBM Plex Mono',monospace;padding:7px 9px;border-radius:7px;display:flex;align-items:center;gap:7px}
+.deliver.priv{background:rgba(46,125,107,.12);color:var(--glow)}
+.deliver.room{background:rgba(216,162,74,.14);color:var(--amber)}
+.ask{border-top:1px solid var(--hair);padding:10px 12px;display:flex;gap:8px}
+.ask input{flex:1;background:var(--ink);border:1px solid var(--hair2);border-radius:9px;color:var(--on);font-size:13px;padding:9px 11px;font-family:inherit}
+.ask input:focus{outline:none;border-color:var(--dim)}
+.ask button{background:var(--patina);color:#06130f;border-radius:9px;padding:0 14px;font-weight:600;font-size:13px}
+.ask button:disabled{background:var(--ink3);color:var(--onf)}
+.controls{position:fixed;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(0deg,#0E1116,#11161D);border-top:1px solid var(--hair2);padding:12px 18px;backdrop-filter:blur(8px)}
+.controls-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.play{display:flex;align-items:center;gap:8px;background:var(--patina);color:#06130f;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:600}
+.play:hover{background:var(--glow)}
+.play.done{background:var(--ink3);color:var(--ond)}
+.speeds{display:flex;gap:3px;background:var(--ink3);border-radius:9px;padding:3px}
+.speeds button{font-size:12px;font-family:'IBM Plex Mono',monospace;padding:6px 11px;border-radius:7px;color:var(--ond)}
+.speeds button.on{background:var(--ink);color:var(--glow)}
+.toggle{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ond);margin-left:auto}
+.tog{width:42px;height:24px;border-radius:14px;background:var(--ink3);border:1px solid var(--hair2);position:relative;transition:.25s;flex:none}
+.tog .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--onf);transition:.25s}
+.tog.on{background:rgba(216,162,74,.3);border-color:var(--amber)}
+.tog.on .knob{left:21px;background:var(--amber)}
+.closeoutbtn{background:var(--ink3);border:1px solid var(--hair2);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--on)}
+.closeoutbtn:hover{border-color:var(--patina);color:var(--glow)}
+.closeoutbtn:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:880px){.toggle{margin-left:0;order:5;width:100%;justify-content:space-between}.play{flex:1}}
+.overlay{position:fixed;inset:0;z-index:60;background:rgba(8,10,13,.7);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto}
+.sheet{background:var(--ink2);border:1px solid var(--hair2);border-radius:16px;max-width:760px;width:100%;animation:rise .4s ease;overflow:hidden}
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.sheet-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--hair)}
+.sheet-h .ttl{font-family:'Newsreader',serif;font-size:20px}
+.sheet-h .x{margin-left:auto;font-size:20px;color:var(--ond);width:32px;height:32px;border-radius:8px}
+.sheet-h .x:hover{background:var(--ink3);color:var(--on)}
+.tabs{display:flex;gap:4px;padding:12px 20px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.tabs button{font-size:13px;padding:9px 14px;border-radius:8px 8px 0 0;color:var(--ond)}
+.tabs button.on{background:var(--ink3);color:var(--on)}
+.doc{padding:20px;max-height:60vh;overflow-y:auto}
+.doc h2{font-family:'Newsreader',serif;font-size:18px;font-weight:600;margin-bottom:3px;color:var(--on)}
+.doc .docsub{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--ond);margin-bottom:16px}
+.doc h3{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--glow);font-family:'IBM Plex Mono',monospace;margin:18px 0 8px}
+.doc p,.doc li{font-size:13.5px;line-height:1.6;color:#cdd1d8}
+.mins{display:flex;flex-direction:column;gap:11px}
+.minrow{background:var(--ink3);border:1px solid var(--hair);border-radius:9px;padding:11px 13px}
+.minrow .mh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--on);margin-bottom:4px}
+.minrow .ftg{font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--glow);background:rgba(46,125,107,.13);padding:2px 6px;border-radius:4px;margin-left:auto}
+.minrow .md{font-size:12.5px;color:#bcc1c9;line-height:1.5}
+.minrow .own{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--ond);margin-top:5px}
+.minrow.flag{border-color:rgba(201,99,60,.4);background:rgba(201,99,60,.07)}
+.minrow.flag .ftg{color:#e8916a;background:rgba(201,99,60,.14)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--onf);padding:7px 9px;border-bottom:1px solid var(--hair2);font-family:'IBM Plex Mono',monospace}
+.tbl td{padding:9px;border-bottom:1px solid var(--hair);color:#cdd1d8;vertical-align:top}
+.tbl .poc{font-size:9px;font-family:'IBM Plex Mono',monospace;color:#e8916a;border:1px solid rgba(201,99,60,.3);padding:1px 5px;border-radius:4px;white-space:nowrap}
+.whys{list-style:none;counter-reset:w}
+.whys li{counter-increment:w;padding:6px 0 6px 30px;position:relative;border-bottom:1px solid var(--hair)}
+.whys li:before{content:counter(w);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;background:var(--ink3);border:1px solid var(--dim);color:var(--glow);font-size:10px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center}
+.dl{display:flex;gap:9px;padding:14px 20px;border-top:1px solid var(--hair);flex-wrap:wrap}
+.dl button{font-size:12.5px;padding:9px 14px;border-radius:8px;border:1px solid var(--hair2);color:var(--on)}
+.dl button.prime{background:var(--patina);color:#06130f;border-color:var(--patina);font-weight:600}
+.synthetic{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--onf);text-align:center;padding:10px 18px 4px}
+.brief-snap{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px}
+.snap{background:var(--ink3);border:1px solid var(--hair);border-radius:9px;padding:8px 11px;min-width:118px}
+.snap .v{font-size:17px;font-weight:600;color:var(--on)}
+.snap .v.bad{color:#e8916a}.snap .v.ok{color:#7fd3bd}
+.snap .k{font-size:10px;color:var(--ond);font-family:'IBM Plex Mono',monospace;margin-top:2px}
+.watchrow{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--hair)}
+.watchrow:last-child{border-bottom:none}
+.watchrow .wt{flex:none;width:18px;height:18px;border-radius:5px;border:1.6px solid var(--amber);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px}
+.watchrow .wb{font-size:13px;color:#d2d6dd;line-height:1.5}
+.watchrow .wb b{color:var(--on);font-weight:600}
+.watchrow .wb .wtag{font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--glow);background:rgba(46,125,107,.13);padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hdr">
+    <div class="hdr-row">
+      <div class="brand"><span class="mk">◷</span>Virtual&nbsp;CMO</div>
+      <select id="facsel" class="facsel" onchange="setFacility(this.value)" title="Facility"></select>
+      <div class="switch">
+        <button id="sw-qapi" class="on" onclick="loadMeeting('qapi')">QAPI Committee</button>
+        <button id="sw-standup" onclick="loadMeeting('standup')">Morning Stand-Up</button>
+        <button id="sw-triple" onclick="loadMeeting('triplecheck')">Triple Check</button>
+      </div>
+      <div class="live" id="liveind"><span class="dot"></span><span id="livetxt">READY</span></div>
+      <div class="clock" id="clock">00:00</div>
+    </div>
+    <div class="mtitle">
+      <div class="t1" id="mt1"></div>
+      <div class="t2" id="mt2"></div>
+    </div>
+    <div class="attendees" id="attendees"></div>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="ph">Live Transcript<span class="badge" id="spkcount"></span></div>
+      <div class="transcript" id="transcript">
+        <div class="empty" id="t-empty" style="padding:60px 20px">Press <b>&nbsp;Play&nbsp;</b> to begin. The Virtual CMO listens, tracks the agenda, and intervenes.</div>
+      </div>
+    </section>
+    <div class="side">
+      <section class="panel">
+        <div class="agenda-head">
+          <div class="ring"><svg width="34" height="34"><circle cx="17" cy="17" r="14" fill="none" stroke="#2a313b" stroke-width="4"/><circle id="ringfill" cx="17" cy="17" r="14" fill="none" stroke="#5BBFA4" stroke-width="4" stroke-dasharray="88" stroke-dashoffset="88" stroke-linecap="round" style="transition:stroke-dashoffset .6s"/></svg><div class="pct" id="ringpct">0%</div></div>
+          <div><div class="lbl">Agenda Coverage</div><div class="sub" id="coversub"></div></div>
+        </div>
+        <div class="agenda" id="agenda"></div>
+      </section>
+      <section class="panel">
+        <div class="ph">CMO Intelligence<span class="badge" id="reasonbadge">grounded</span></div>
+        <div class="feed" id="feed"><div class="empty" id="f-empty">Standing by. Analysis appears here as the meeting unfolds.</div></div>
+        <div class="ask">
+          <input id="askin" placeholder="Ask the Virtual CMO…" onkeydown="if(event.key==='Enter')doAsk()" />
+          <button id="askbtn" onclick="doAsk()">Ask</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="synthetic">⚠ Demonstration · synthetic facility &amp; resident data · no PHI · figures illustrative · decision support only (TX CPOM / TRAIGA — licensed clinicians decide)</div>
+</div>
+
+<div class="controls"><div class="controls-in">
+  <button class="play" id="playbtn" onclick="togglePlay()">▶ Play session</button>
+  <div class="speeds"><button data-s="1" class="on" onclick="setSpeed(1,this)">1×</button><button data-s="2" onclick="setSpeed(2,this)">2×</button><button data-s="4" onclick="setSpeed(4,this)">4×</button></div>
+  <button class="closeoutbtn" id="brbtn" onclick="openBriefing()">Pre-meeting briefing</button>
+  <button class="closeoutbtn" id="logbtn" onclick="openLog()">Meeting log</button>
+  <button class="closeoutbtn" id="portbtn" onclick="openPortfolio()">Portfolio</button>
+  <button class="closeoutbtn" id="survbtn" onclick="openSurveillance()">Surveillance</button>
+  <button class="closeoutbtn" id="wsbtn" onclick="openWorkspace()">Workspace</button>
+  <button class="closeoutbtn" id="cobtn" disabled onclick="openCloseout()">Generate close-out →</button>
+  <label class="toggle">Speak to the room<span class="tog" id="roomtog" onclick="toggleRoom()"><span class="knob"></span></span><span id="roomstate" style="font-family:'IBM Plex Mono',monospace;font-size:11px;width:26px">off</span></label>
+</div></div>
+
+<script>
+/* =================== MEETINGS =================== */
+const MEETINGS = {
+qapi:{
+  t1:"QAPI Committee — Monthly Working Session",
+  t2:"Magnolia Place · Georgetown, TX · "+today(),
+  speakers:"ambient capture · 6 speakers",
+  attendees:[["K. Okafor, RN","DON (chair)"],["D. Whitman","Administrator"],["L. Cruz, RN, CIC","Infection Prev."],["T. Brooks, RN","MDS"],["R. Patel, PharmD","Consultant Rx"],["M. Sorenson, DPT","Therapy"],["Dr. M. Choi","CMO — represented by Virtual CMO",true]],
+  agenda:[["prior","Review prior action items & open PIPs","F867 · implementation tracking"],["falls","Falls & falls with major injury","F689 · QM falls w/ injury"],["anti","Antipsychotic / psychotropic use & GDR","F758/F605 · QIPP N031.04"],["infx","Infections & antibiotic stewardship","F881 · NHSN LTCF"],["skin","Pressure injuries / skin","F686 · QM new/worsened PI"],["rehosp","Hospitalizations / readmissions","claims-based · ED transfers"],["nutr","Weight loss / nutrition","F692 · QIPP N029.03"],["griev","Grievances","F585 · resident voice"],["newpip","New PIP decisions & close-out","F865/F868 · QAA"]],
+  script:[
+    {t:1.5,who:"K. Okafor",role:"DON",text:"Let's call the QAPI committee to order. Dr. Choi is covering survey at Cedar Park, so the Virtual CMO is sitting in for clinical oversight today.",agenda:"prior",status:"active"},
+    {t:6,who:"K. Okafor",role:"DON",text:"We've got a full dashboard, so let's keep moving. Tanya, start us on falls."},
+    {t:10.5,who:"T. Brooks",role:"MDS",text:"Three falls with major injury this quarter. All three were east hall, all on the night shift.",agenda:"falls"},
+    {t:15,who:"M. Sorenson",role:"Therapy",text:"Two of those residents had just been started on new diuretics that week."},
+    {t:19,who:"K. Okafor",role:"DON",text:"Right — and I'll be honest, orthostatic vitals weren't documented before the falls. That's a gap.",think:1100,card:{type:"measure",ct:"Pattern detected · Falls",mname:"Long-stay falls with major injury",val:8.9,bench:3.4,unit:"%",dir:"lower",ftags:[["F689",0],["QM",1]],read:"Three signals line up into one failure mode: new diuretics \u2192 orthostatic drop \u2192 unwitnessed night falls, east hall, thin overnight coverage. Not three incidents \u2014 one system gap. Recommend an orthostatic-vitals protocol on any new antihypertensive/diuretic and an east-hall night-staffing review."}},
+    {t:26,who:"K. Okafor",role:"DON",text:"Let's move to psychotropics. Raj?"},
+    {t:29.5,who:"R. Patel",role:"Consultant Rx",text:"The long-stay antipsychotic rate is 15.2% — above the Texas average. Four residents are on antipsychotics without a clearly documented indication.",agenda:"anti",think:1200,card:{type:"measure",ct:"Quality measure · Antipsychotics",mname:"Long-stay residents on antipsychotics",val:15.2,bench:14.5,unit:"%",dir:"lower",ftags:[["F758",0],["F605",0],["N031.04",1]],read:"This is a QIPP Component One measure \u2014 every point above benchmark is real dollars at risk, and CMS moves long-stay antipsychotics to a hybrid MDS+claims measure in 2026. Four residents without a documented indication is also F758/F605 exposure. Fix: indication + GDR plan on each, outliers reviewed by the Medical Director personally."}},
+    {t:37,who:"K. Okafor",role:"DON",text:"Okay, we'll have the units start working on those.",think:900,card:{type:"nudge",ct:"Private \u2192 Dr. Choi",ntext:"You'd want eyes on this yourself: <b>4 antipsychotic residents lack a documented indication.</b> Recommend you review each personally and set the GDR plan. Noting this maps to the Antipsychotic Reduction PIP opened last month."}},
+    {t:43,who:"L. Cruz",role:"Infection Prev.",text:"On infections — three UTIs this period. Two were started on antibiotics before the culture and sensitivity came back, and one antibiotic has no stop date in the order.",agenda:"infx",think:1100,card:{type:"measure",ct:"Stewardship · Antibiotics",mname:"Antibiotic starts without indication / stop-date",val:3,bench:0,unit:" flagged",dir:"lower",ftags:[["F881",0],["NHSN",1]],read:"Empiric starts before C&S and an open-ended order are classic antibiotic-stewardship findings under F881, and they won't hold against NHSN/McGeer criteria. Recommend a 72-hour antibiotic time-out and a hard stop-date on every order."}},
+    {t:51,who:"M. Sorenson",role:"Therapy",text:"Skin looks stable — no new facility-acquired pressure injuries this month.",agenda:"skin"},
+    {t:55,who:"T. Brooks",role:"MDS",text:"Readmissions are at 12.3%. The drivers are still CHF and sepsis returns.",agenda:"rehosp",think:900,card:{type:"nudge",ct:"Private \u2192 Dr. Choi",ntext:"CHF + sepsis readmissions overlap the falls and antibiotic findings \u2014 same residents, same week. <b>A change-in-condition huddle on new CHF/diuretic starts</b> would hit falls, readmissions, and stewardship at once."}},
+    {t:62,who:"D. Whitman",role:"Administrator",text:"We're short on time — let's skip the nutrition review this month and pick it up next time.",agenda:"nutr",status:"missed"},
+    {t:67,who:"L. Cruz",role:"Infection Prev.",text:"Two grievances, both resolved within the window. Nothing systemic.",agenda:"griev"},
+    {t:71,who:"D. Whitman",role:"Administrator",text:"Good. If there's nothing else, let's wrap it up and get everyone back to the floor.",think:1500,card:{type:"intervene",ct:"\u26a0 Intervention · before adjournment",ititle:"Two required items have not been closed:",items:["The <b>Antipsychotic Reduction PIP</b> opened last month was discussed as a topic but never <b>reviewed as an open action item.</b> It was a Plan-of-Correction commitment \u2014 F867 requires implementation be tracked to closure, not just re-discussed.","<b>Weight-loss / nutrition</b> was on today's agenda and was skipped. That's a recurring QIPP measure (N029.03) \u2014 at minimum log the deferral and a make-up date."]}},
+    {t:80,who:"K. Okafor",role:"DON",text:"Good catch — let's pull the antipsychotic PIP up now and add nutrition to the top of next month's agenda.",agenda:"prior",status:"covered"},
+    {t:85,who:"K. Okafor",role:"DON",text:"Anything else? Then let's close. Minutes and the PIP charter go out today.",agenda:"newpip"}
+  ],
+  closeout:qapiCloseout
+},
+standup:{
+  t1:"Morning Clinical Stand-Up — 24-Hour Report",
+  t2:"Magnolia Place · Georgetown, TX · "+today(),
+  speakers:"ambient capture · 6 speakers",
+  attendees:[["D. Whitman","Administrator (leads)"],["K. Okafor, RN","DON"],["P. Nguyen, RN","Unit Manager"],["T. Brooks, RN","MDS"],["S. Adeyemi","Social Services"],["G. Flores, RD","Dietary"],["NP J. Reyes","for Dr. Choi — represented by Virtual CMO",true]],
+  agenda:[["events","24-hour events / overnight","shift report"],["admits","New admissions — orders & med rec","F756 · drug regimen review"],["returns","Returns from hospital / ED","INTERACT · readmission"],["condition","Changes in condition","F684 · INTERACT Stop & Watch"],["falls","Falls / incidents overnight","F689"],["skin","New skin / wounds","F686"],["behav","Behaviors / PRN psychotropics","F758"],["pending","Pending labs / orders","follow-up owners"],["staffing","Staffing / assignments","PBJ"]],
+  script:[
+    {t:1.5,who:"D. Whitman",role:"Administrator",text:"Morning, everyone — let's run the stand-up. Dr. Choi's NP is tied up in clinic, so the Virtual CMO is covering clinical oversight on the huddle.",agenda:"events",status:"active"},
+    {t:6,who:"K. Okafor",role:"DON",text:"Busy night. Let's start with the two new admissions."},
+    {t:10,who:"S. Adeyemi",role:"Social Services",text:"Bed 12 came in from St. David's after a CHF exacerbation, and Bed 30 is a post-hip-ORIF rehab.",agenda:"admits",think:1100,card:{type:"alert",ct:"New admission · medication reconciliation",title:"Bed 12 — post-CHF admission",ftags:[["F756",0],["admit orders",1]],read:"A late post-CHF admit is high readmission risk. Confirm medication reconciliation against the hospital list, a baseline weight, and that diuretic + daily-weight orders are in before noon. Drug regimen review under F756 should flag any duplication or omission today, not at the 14-day mark."}},
+    {t:17,who:"P. Nguyen",role:"Unit Manager",text:"Bed 12's paperwork is still catching up — she came in late last night.",think:900,card:{type:"nudge",ct:"Private \u2192 NP / Dr. Choi",ntext:"Confirm <b>Bed 12's med reconciliation and code status</b> before noon. Late CHF admits with incomplete reconciliation are exactly the 30-day bounce-backs QAPI tracks."}},
+    {t:23,who:"P. Nguyen",role:"Unit Manager",text:"Bed 207 went out to the ED last night and came back around 2 a.m. — they were working up a possible UTI.",agenda:"returns",think:1100,card:{type:"alert",ct:"ED return · readmission watch",title:"Bed 207 — returned from ED (2nd visit in 30 days)",ftags:[["INTERACT",1],["readmission",0]],read:"Second ED visit in 30 days is a readmission pattern. Two actions: start a change-in-condition note now (don't let it close unwritten), and run an INTERACT review \u2014 was this transfer avoidable? If the UTI work-up was for the same issue as the first visit, that's a root-cause for QAPI."}},
+    {t:31,who:"K. Okafor",role:"DON",text:"She's back and stable now, vitals are fine."},
+    {t:36,who:"P. Nguyen",role:"Unit Manager",text:"On Bed 12 — day staff say she seems more confused and lethargic this morning than at admission.",agenda:"condition",think:1300,card:{type:"alert",ct:"Change in condition · early warning",title:"Bed 12 — new confusion / lethargy",ftags:[["F684",0],["Stop & Watch",1]],read:"New confusion + lethargy in a fresh CHF admit is a Stop-and-Watch trigger \u2014 rule out hypoxia, UTI, and electrolyte derangement. Recommend SBAR to the provider now with vitals, O2 sat, a UA, and orthostatics. This is the window where an early call prevents a 3 a.m. transfer."}},
+    {t:44,who:"G. Flores",role:"Dietary",text:"Bed 18 — decreased intake again, that's two days running now.",agenda:"condition",status:"partial"},
+    {t:49,who:"K. Okafor",role:"DON",text:"Okay. Falls — one near-fall overnight, no injury, already on the report.",agenda:"falls"},
+    {t:53,who:"P. Nguyen",role:"Unit Manager",text:"Skin — no new wounds, weekly assessments are current.",agenda:"skin"},
+    {t:57,who:"K. Okafor",role:"DON",text:"Behaviors — Bed 22 had one PRN lorazepam for agitation overnight.",agenda:"behav",think:900,card:{type:"nudge",ct:"Private \u2192 NP / Dr. Choi",ntext:"PRN lorazepam for agitation \u2014 make sure the <b>indication and the non-pharmacologic measures tried</b> are documented. This feeds the antipsychotic/psychotropic PIP and the GDR review."}},
+    {t:63,who:"D. Whitman",role:"Administrator",text:"Staffing — we're covered today; two night-shift call-outs were filled with agency.",agenda:"staffing"},
+    {t:68,who:"D. Whitman",role:"Administrator",text:"Alright, good huddle — let's get to the floor.",think:1500,card:{type:"intervene",ct:"\u26a0 Intervention · before you break",ititle:"Three items have no owner yet:",items:["<b>Bed 18 — decreased intake, two days running,</b> with no weight check, dietitian referral, or provider notice. This is how avoidable weight loss and a hospitalization start (QIPP N029.03). Assign it now.","<b>Bed 207's ED return</b> has no change-in-condition note started, and it's her 2nd visit in 30 days \u2014 a readmission pattern QAPI will want, with an INTERACT review.","<b>Bed 12's confusion</b> still needs provider contact this morning \u2014 don't let it wait for afternoon rounds."]}},
+    {t:78,who:"K. Okafor",role:"DON",text:"Good catches — I'll put dietary on Bed 18 now and start the change-in-condition note on 207.",agenda:"condition",status:"covered"},
+    {t:83,who:"K. Okafor",role:"DON",text:"Bed 207 review noted. Thanks, everyone.",agenda:"returns",status:"covered"}
+  ],
+  closeout:standupCloseout
+},
+triplecheck:{
+  t1:"Triple Check — Medicare Pre-Bill Audit",
+  t2:"Magnolia Place · Georgetown, TX · "+today(),
+  speakers:"ambient capture · 6 speakers",
+  attendees:[["T. Brooks, RN","MDS Coordinator (leads)"],["B. Okonkwo","Business Office Mgr"],["K. Okafor, RN","DON"],["M. Sorenson, DPT","Rehab Director"],["A. Reyes","HIM / Records"],["D. Whitman","Administrator"],["Dr. M. Choi","CMO — represented by Virtual CMO",true]],
+  agenda:[["census","Medicare A census this cycle","UB-04 run"],["mds","MDS accuracy & ARD scheduling","5-day / IPA · timeliness"],["pdpm","PDPM components & HIPPS","PT/OT · SLP · Nursing · NTA"],["cert","Physician certification / recert","SNF PPS · payable claim"],["docs","Skilled documentation","daily skilled need"],["therapy","Therapy minutes & modes","MDS match · ≤25% group+concurrent"],["dx","Diagnoses / ICD-10 coding","primary dx · NTA support"],["elig","Eligibility & benefit days","day 1-20 / 21-100"],["claims","Claims ready / hold list","release vs hold"]],
+  script:[
+    {t:1.5,who:"T. Brooks",role:"MDS Coord.",text:"Let's run Triple Check before the claim run goes out. Dr. Choi's covering clinic, so the Virtual CMO is on for clinical-documentation oversight.",agenda:"census",status:"active"},
+    {t:6,who:"B. Okonkwo",role:"Business Office",text:"We have 14 Medicare Part A residents billing this cycle.",agenda:"census"},
+    {t:11,who:"T. Brooks",role:"MDS Coord.",text:"MDS-wise we're current — all 5-day assessments are in, ARDs are within the window, one IPA on Bed 14 after the diuretic change.",agenda:"mds"},
+    {t:17,who:"T. Brooks",role:"MDS Coord.",text:"Bed 14's HIPPS came out with a high NTA component — she's coded for several comorbidities.",agenda:"pdpm",think:1300,card:{type:"alert",ct:"PDPM · HIPPS integrity",title:"Bed 14 — high NTA component",ftags:[["HIPPS",1],["NTA",0]],read:"NTA points only hold if the comorbidities are captured as coded diagnoses with documentation behind them. If the chart and ICD-10 coding don't carry those conditions, this HIPPS overstates the NTA tier and won't survive an ADR or RAC review. Confirm each NTA comorbidity is documented and coded before this one bills — otherwise the claim is a downcode waiting to happen."}},
+    {t:25,who:"A. Reyes",role:"HIM",text:"I can pull Bed 14's coding sheet — two of those conditions are from the hospital record but I'm not sure they were carried into our active diagnoses.",agenda:"dx",think:900,card:{type:"nudge",ct:"Private → Dr. Choi",ntext:"<b>Bed 14's NTA-driving comorbidities</b> may live only in the hospital H&P, not your coded active diagnoses. Have the provider confirm and document them today, or the NTA component should come down before billing."}},
+    {t:32,who:"B. Okonkwo",role:"Business Office",text:"Certifications — most are signed. Bed 22's physician certification for the Part A stay is still unsigned.",agenda:"cert",think:1100,card:{type:"alert",ct:"Certification · payable claim",title:"Bed 22 — physician certification unsigned",ftags:[["SNF PPS",1],["cert",0]],read:"A SNF Part A claim is not payable without a timely, signed physician certification of the skilled need. This is a hard hold, not a soft flag — release it and it denies. Route it to the attending for signature today and hold the claim until it's in the chart."}},
+    {t:40,who:"M. Sorenson",role:"Rehab",text:"Therapy minutes reconcile to the MDS for everyone except Bed 9 — the logs are a little under what the assessment reflects.",agenda:"therapy",think:1100,card:{type:"alert",ct:"MDS accuracy · therapy",title:"Bed 9 — therapy minutes vs MDS",ftags:[["MDS",0],["PDPM",1]],read:"Under PDPM therapy minutes don't drive payment the way RUGs did, but the MDS still has to be accurate — coded minutes the therapy logs don't support is an MDS-accuracy finding. Reconcile the logs to the assessment; if the MDS overstates, correct it before this bills. Also confirm group + concurrent stayed at or under 25% per discipline."}},
+    {t:49,who:"A. Reyes",role:"HIM",text:"Documentation — daily skilled notes look complete on the rehab residents.",agenda:"docs"},
+    {t:54,who:"B. Okonkwo",role:"Business Office",text:"Bed 30 is long-term care, no Part A, so nothing to bill Medicare there.",agenda:"census"},
+    {t:58,who:"A. Reyes",role:"HIM",text:"Bed 7 — skilled nursing stay, the notes are there but a couple of days read pretty thin on the skilled piece.",agenda:"docs",status:"partial"},
+    {t:64,who:"B. Okonkwo",role:"Business Office",text:"Eligibility — benefit days look fine, most are early in the stay.",agenda:"elig",think:900,card:{type:"alert",ct:"Benefit days · coinsurance",title:"Bed 3 — approaching benefit day 20",ftags:[["days 1-20",1],["coinsurance",0]],read:"Bed 3 is near day 20. Days 1-20 are covered in full; daily coinsurance begins day 21. Verify secondary insurance now and make sure the resident and family have notice before the liability changes — don't let day 21 arrive as a surprise on the statement."}},
+    {t:72,who:"T. Brooks",role:"MDS Coord.",text:"Okay, I think we're in good shape — let's release the claim run.",agenda:"claims",think:1500,card:{type:"intervene",ct:"⚠ Intervention · before you release the run",ititle:"Three claims should hold until these are closed:",items:["<b>Bed 22 — unsigned physician certification.</b> Not payable without it; this claim denies if it goes out. Hold until signed.","<b>Bed 14 — NTA comorbidities not confirmed as coded active diagnoses.</b> The HIPPS overstates NTA until the chart and coding support it; bill it as-is and it's a downcode on review.","<b>Bed 7 — thin skilled documentation</b> on two days, never assigned an owner. Document the skilled need or the days aren't defensible."]}},
+    {t:82,who:"T. Brooks",role:"MDS Coord.",text:"Good catches — let's hold 22, 14, and 7, fix them this week, and release the rest.",agenda:"claims",status:"covered"},
+    {t:87,who:"T. Brooks",role:"MDS Coord.",text:"Bed 7's skilled note is assigned to me. Thanks, everyone.",agenda:"docs",status:"covered"}
+  ],
+  closeout:triplecheckCloseout
+}
+};
+
+/* =================== ENGINE =================== */
+let CUR='qapi', M=MEETINGS[CUR];
+let speed=1, playing=false, startWall=0, elapsedAtPause=0, idx=0, raf=null, finished=false, roomMode=false;
+const transcriptEl=document.getElementById('transcript'), feedEl=document.getElementById('feed');
+function today(){return new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}
+
+function loadMeeting(key){
+  if(playing) togglePlay();
+  CUR=key; M=MEETINGS[key]; finished=false; idx=0; elapsedAtPause=0;
+  document.getElementById('sw-qapi').classList.toggle('on',key==='qapi');
+  document.getElementById('sw-standup').classList.toggle('on',key==='standup');
+  document.getElementById('sw-triple').classList.toggle('on',key==='triplecheck');
+  document.getElementById('mt1').textContent=M.t1;
+  document.getElementById('mt2').innerHTML=M.t2;
+  document.getElementById('spkcount').textContent=M.speakers;
+  document.getElementById('clock').textContent='00:00';
+  document.getElementById('livetxt').textContent='READY';
+  document.getElementById('liveind').classList.add('paused');
+  // attendees
+  document.getElementById('attendees').innerHTML=M.attendees.map(a=>`<span class="chip ${a[2]?'cmo':''}"><b>${a[0]}</b> · ${a[1]}</span>`).join('');
+  // agenda
+  document.getElementById('agenda').innerHTML=M.agenda.map(a=>`<div class="aitem" id="ag-${a[0]}"><div class="box"></div><div class="txt">${a[1]}<span class="tag">${a[2]}</span></div></div>`).join('');
+  // reset transcript/feed
+  transcriptEl.innerHTML='<div class="empty" id="t-empty" style="padding:60px 20px">Press <b>&nbsp;Play&nbsp;</b> to begin. The Virtual CMO listens, tracks the agenda, and intervenes.</div>';
+  feedEl.innerHTML='<div class="empty" id="f-empty">Standing by. Analysis appears here as the meeting unfolds.</div>';
+  document.getElementById('cobtn').disabled=true;
+  document.getElementById('cobtn').style.borderColor='';document.getElementById('cobtn').style.color='';
+  document.getElementById('playbtn').className='play';document.getElementById('playbtn').innerHTML='▶ Play session';
+  updateCoverage();
+}
+
+function setSpeed(s,btn){speed=s;document.querySelectorAll('.speeds button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+function toggleRoom(){roomMode=!roomMode;document.getElementById('roomtog').classList.toggle('on',roomMode);document.getElementById('roomstate').textContent=roomMode?'on':'off';}
+function togglePlay(){
+  if(finished){replay();return;}
+  playing=!playing;const btn=document.getElementById('playbtn');
+  if(playing){startWall=performance.now();btn.innerHTML='⏸ Pause';document.getElementById('t-empty')?.remove();document.getElementById('liveind').classList.remove('paused');document.getElementById('livetxt').textContent='LIVE';loop();}
+  else{elapsedAtPause+=(performance.now()-startWall)*speed/1000;btn.innerHTML='▶ Resume';document.getElementById('liveind').classList.add('paused');document.getElementById('livetxt').textContent='PAUSED';cancelAnimationFrame(raf);}
+}
+function curElapsed(){return elapsedAtPause+(playing?(performance.now()-startWall)*speed/1000:0);}
+function loop(){
+  const e=curElapsed();
+  document.getElementById('clock').textContent=String(Math.floor(e/60)).padStart(2,'0')+':'+String(Math.floor(e%60)).padStart(2,'0');
+  while(idx<M.script.length && e>=M.script[idx].t){fire(M.script[idx]);idx++;}
+  if(idx>=M.script.length){finish();return;}
+  raf=requestAnimationFrame(loop);
+}
+function fire(ev){
+  document.getElementById('f-empty')?.remove();
+  const line=document.createElement('div');line.className='line';
+  line.innerHTML=`<div class="who">${ev.who} <span class="role">· ${ev.role}</span><span class="tm">${clockOf(ev.t)}</span></div><div class="say">${ev.text}</div>`;
+  transcriptEl.appendChild(line);transcriptEl.scrollTop=transcriptEl.scrollHeight;
+  if(ev.agenda){
+    const el=document.getElementById('ag-'+ev.agenda);
+    if(el){
+      document.querySelectorAll('.aitem.active').forEach(x=>x.classList.remove('active'));
+      if(ev.status==='active'){el.classList.add('active');}
+      else if(ev.status==='missed'){el.className='aitem missed';el.querySelector('.box').textContent='!';}
+      else if(ev.status==='partial'){if(!el.classList.contains('covered')){el.className='aitem partial';el.querySelector('.box').textContent='~';}}
+      else{el.className='aitem covered';el.querySelector('.box').textContent='✓';}
+      updateCoverage();
+    }
+  }
+  if(ev.card){ if(ev.think) showThinking(ev.think/speed,()=>pushCard(ev.card)); else pushCard(ev.card); }
+}
+function showThinking(ms,cb){const t=document.createElement('div');t.className='thinking';t.innerHTML=`Virtual CMO analyzing<span class="sh"><i></i><i></i><i></i></span>`;feedEl.appendChild(t);feedEl.scrollTop=feedEl.scrollHeight;setTimeout(()=>{t.remove();cb();},Math.max(350,ms));}
+function pushCard(c){
+  const el=document.createElement('div');
+  if(c.type==='measure'){
+    const pctW=Math.min(100,(c.val/(Math.max(c.bench,c.val)*1.25))*100);const bad=c.dir==='lower'?c.val>c.bench:c.val<c.bench;
+    el.className='card measure';
+    el.innerHTML=`<div class="ct">✦ ${c.ct}</div><div class="mname">${c.mname}</div><div class="bar ${bad?'':'ok'}"><div class="fill" style="width:${pctW}%"></div></div><div class="marks"><span>facility <b style="color:${bad?'#e8916a':'#7fd3bd'}">${c.val}${c.unit}</b></span><span>benchmark ${c.bench}${c.unit}</span></div><div class="ftags">${c.ftags.map(f=>`<span class="ft ${f[1]?'q':''}">${f[0]}</span>`).join('')}</div><div class="read">${c.read}</div>`;
+  } else if(c.type==='alert'){
+    el.className='card alert';
+    el.innerHTML=`<div class="ct">✦ ${c.ct}</div><div class="mname">${c.title}</div><div class="ftags">${c.ftags.map(f=>`<span class="ft ${f[1]?'q':''}">${f[0]}</span>`).join('')}</div><div class="read">${c.read}</div>`;
+  } else if(c.type==='nudge'){
+    el.className='card nudge';el.innerHTML=`<div class="ct">⚑ ${c.ct}</div><div class="ntext">${c.ntext}</div>`;
+  } else if(c.type==='intervene'){
+    el.className='card intervene';
+    const deliver=roomMode?`<div class="deliver room">🔊 Surfaced to the room — on-screen prompt to the chair: "A few items still need an owner before we close…"</div>`:`<div class="deliver priv">⚑ Sent privately to Dr. Choi / the NP — raised to the chair on her behalf</div>`;
+    el.innerHTML=`<div class="ct">${c.ct}</div><div class="ititle">${c.ititle}</div><ul>${c.items.map(i=>`<li>${i}</li>`).join('')}</ul>${deliver}`;
+  }
+  feedEl.appendChild(el);feedEl.scrollTop=feedEl.scrollHeight;
+}
+function updateCoverage(){
+  const covered=document.querySelectorAll('.aitem.covered').length,missed=document.querySelectorAll('.aitem.missed').length,total=M.agenda.length;
+  document.getElementById('ringfill').style.strokeDashoffset=88-(88*covered/total);
+  document.getElementById('ringpct').textContent=Math.round((covered/total)*100)+'%';
+  document.getElementById('coversub').textContent=`${covered} of ${total} addressed`+(missed?` · ${missed} skipped`:'');
+}
+function finish(){finished=true;playing=false;cancelAnimationFrame(raf);const b=document.getElementById('playbtn');b.className='play done';b.innerHTML='↻ Replay session';document.getElementById('cobtn').disabled=false;document.getElementById('cobtn').style.borderColor='var(--patina)';document.getElementById('cobtn').style.color='var(--glow)';document.getElementById('liveind').classList.add('paused');document.getElementById('livetxt').textContent='ENDED';}
+function replay(){loadMeeting(CUR);togglePlay();}
+function clockOf(t){const base=(CUR==='qapi'?14*3600:CUR==='standup'?7*3600+30*60:9*3600)+Math.floor(t);const h=Math.floor(base/3600)%12||12;const m=Math.floor(base/60)%60;const ap=Math.floor(base/3600)%24<12?'AM':'PM';return `${h}:${String(m).padStart(2,'0')} ${ap}`;}
+
+/* =================== LIVE REASONING (Ask the CMO) =================== */
+async function doAsk(){
+  const inp=document.getElementById('askin');const q=inp.value.trim();if(!q)return;
+  inp.value='';document.getElementById('f-empty')?.remove();
+  const uc=document.createElement('div');uc.className='card live';uc.innerHTML=`<div class="ct">You asked</div><div class="lq">"${q}"</div><div class="la" id="ans-pending">…</div>`;
+  feedEl.appendChild(uc);feedEl.scrollTop=feedEl.scrollHeight;
+  const th=document.createElement('div');th.className='thinking';th.innerHTML=`Virtual CMO reasoning<span class="sh"><i></i><i></i><i></i></span>`;feedEl.appendChild(th);feedEl.scrollTop=feedEl.scrollHeight;
+  const ctx=buildContext();
+  try{
+    const r=await fetch('https://aorcuhugspylwfxlywvc.supabase.co/functions/v1/vcmo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,meeting:M.t1,context:ctx})});
+    const d=await r.json();th.remove();
+    if(d&&d.answer){uc.querySelector('#ans-pending').textContent=d.answer;}
+    else if(d&&d.error==='not_configured'){uc.querySelector('#ans-pending').innerHTML="Live reasoning isn't switched on yet. Add an <b>ANTHROPIC_API_KEY</b> in this project's Supabase Edge Function secrets and I'll answer live, grounded in the meeting and the measures. (The choreographed analysis above runs without it.)";}
+    else{uc.querySelector('#ans-pending').textContent=(d&&d.message)?d.message:"Couldn't complete that request.";}
+  }catch(e){th.remove();uc.querySelector('#ans-pending').innerHTML="Live reasoning runs when this is served from its cloud URL. Opened as a local file, the reasoning endpoint isn't reachable — open the deployed link to use it.";}
+  feedEl.scrollTop=feedEl.scrollHeight;
+}
+function buildContext(){
+  const items=M.agenda.map(a=>{const el=document.getElementById('ag-'+a[0]);let s='not yet discussed';if(el){if(el.classList.contains('covered'))s='addressed';else if(el.classList.contains('missed'))s='SKIPPED';else if(el.classList.contains('partial'))s='partially addressed';else if(el.classList.contains('active'))s='in progress';}return `- ${a[1]} [${a[2]}]: ${s}`;}).join('\n');
+  const lines=[...transcriptEl.querySelectorAll('.line .say')].slice(-8).map(n=>n.textContent).join(' | ');
+  return `MEETING: ${M.t1}\nFACILITY: Magnolia Place, Georgetown TX (synthetic demo data)\nAGENDA STATUS:\n${items}\nRECENT DISCUSSION: ${lines}`;
+}
+
+loadMeeting('qapi');
+
+/* =================== CLOSE-OUT =================== */
+let coTab='a';
+function openCloseout(){
+  const ov=document.createElement('div');ov.className='overlay';ov.id='overlay';ov.onclick=e=>{if(e.target===ov)closeCo();};
+  const tabs=M.closeout().tabs;
+  ov.innerHTML=`<div class="sheet"><div class="sheet-h"><span class="mk" style="width:26px;height:26px;border:1.5px solid var(--glow);border-radius:50%;color:var(--glow);display:flex;align-items:center;justify-content:center;font-size:14px">◷</span><span class="ttl">Meeting Close-Out</span><button class="x" onclick="closeCo()">✕</button></div><div class="tabs" id="cotabs">${tabs.map((t,i)=>`<button id="tb-${i}" class="${i===0?'on':''}" onclick="coShow(${i})">${t.label}</button>`).join('')}</div><div class="doc" id="codoc"></div><div class="dl"><button class="prime" onclick="downloadCloseout()">⬇ Download full close-out (.md)</button><button id="savebtn" onclick="saveMeeting(this)">⬆ Save to meeting log</button><button onclick="closeCo()">Close</button></div></div>`;
+  document.body.appendChild(ov);coShow(0);
+}
+function closeCo(){document.getElementById('overlay')?.remove();}
+function coShow(i){const tabs=M.closeout().tabs;document.querySelectorAll('#cotabs button').forEach((b,j)=>b.classList.toggle('on',j===i));document.getElementById('codoc').innerHTML=tabs[i].html;}
+function downloadCloseout(){const md=M.closeout().md;const blob=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(CUR==='qapi'?'qapi':'standup')+'-closeout-magnolia-place.md';a.click();}
+
+function qapiCloseout(){return{tabs:[
+  {label:"Survey-ready minutes",html:`<h2>QAPI Committee — Meeting Minutes</h2><div class="docsub">Magnolia Place · ${today()} · Quorum met (DON, Medical Director designee, Infection Preventionist) · 42 CFR §483.75</div><div class="mins">
+    <div class="minrow"><div class="mh">Falls & falls with major injury<span class="ftg">F689</span></div><div class="md">3 falls w/ major injury (east hall, nights); 2 linked to new diuretics; pre-fall orthostatics not documented. <b>Decision:</b> orthostatic-vitals protocol on new antihypertensive/diuretic; east-hall night-staffing review.</div><div class="own">Owner: DON · Due: 14 days</div></div>
+    <div class="minrow"><div class="mh">Antipsychotic / psychotropic use & GDR<span class="ftg">F758 · N031.04</span></div><div class="md">Long-stay antipsychotic 15.2% (&gt; TX avg); 4 residents without documented indication. <b>Decision:</b> indication + GDR plan per resident; Medical Director reviews outliers. Linked to open PIP.</div><div class="own">Owner: Medical Director + Consultant Pharmacist · Due: next cycle</div></div>
+    <div class="minrow"><div class="mh">Infections & antibiotic stewardship<span class="ftg">F881</span></div><div class="md">3 UTIs; 2 empiric starts pre-C&S; 1 order without stop-date. <b>Decision:</b> 72-hour antibiotic time-out; mandatory stop-dates.</div><div class="own">Owner: Infection Preventionist · Due: 14 days</div></div>
+    <div class="minrow"><div class="mh">Pressure injuries / skin<span class="ftg">F686</span></div><div class="md">No new facility-acquired pressure injuries. <b>Decision:</b> continue protocol.</div><div class="own">Owner: DON · Status: stable</div></div>
+    <div class="minrow"><div class="mh">Hospitalizations / readmissions<span class="ftg">claims</span></div><div class="md">Readmissions 12.3%; CHF + sepsis drivers. <b>Decision:</b> change-in-condition huddle on new CHF/diuretic starts.</div><div class="own">Owner: DON · Due: 14 days</div></div>
+    <div class="minrow flag"><div class="mh">Weight loss / nutrition — NOT ADDRESSED<span class="ftg">F692 · flagged</span></div><div class="md">Deferred for time; flagged by Virtual CMO. <b>Decision:</b> logged deferral; top of next agenda.</div><div class="own">Owner: Dietary · Due: next meeting</div></div>
+    <div class="minrow"><div class="mh">Grievances<span class="ftg">F585</span></div><div class="md">2 grievances, resolved within window; none systemic.</div><div class="own">Owner: Social Services · Status: closed</div></div>
+    <div class="minrow flag"><div class="mh">Open PIP review — CORRECTED IN-MEETING<span class="ftg">F867 · flagged</span></div><div class="md">Antipsychotic Reduction PIP (POC commitment) nearly closed without review; Virtual CMO surfaced before adjournment. <b>Decision:</b> PIP pulled up, progress logged.</div><div class="own">Owner: Medical Director · Status: re-opened & tracked</div></div></div>`},
+  {label:"PIP charter",html:`<h2>Performance Improvement Project — Charter</h2><div class="docsub">Reduce Long-Stay Antipsychotic Utilization · POC-linked · F867 / QIPP N031.04</div><h3>Problem statement</h3><p>Long-stay antipsychotic utilization is 15.2%, above the Texas benchmark, with 4 residents lacking a documented indication — QIPP Component One exposure and F758/F605 risk.</p><h3>Aim (SMART)</h3><p>Reduce the rate from 15.2% to ≤12.0% within two quarters; documented indication + active GDR plan for 100% of residents on antipsychotics within 30 days.</p><h3>Root cause — 5 Whys</h3><ol class="whys"><li>Why elevated? — Several residents remain on antipsychotics without active GDR.</li><li>Why no GDR? — Indications weren't re-documented after admission/transfer.</li><li>Why not re-documented? — No hard checkpoint ties the order to an indication + GDR plan.</li><li>Why no checkpoint? — Pharmacist recommendations aren't routed to a Medical Director decision step.</li><li>Why not routed? — No closed-loop owner between pharmacy review and prescriber action. <b>← root cause</b></li></ol><h3>Interventions</h3><p>① Indication + GDR plan on every antipsychotic order. ② Monthly pharmacist outlier list → Medical Director review. ③ Non-pharmacologic care-plan first-line. ④ Dashboard tracked monthly in QAPI.</p><h3>Measures & PDSA</h3><p>Primary: long-stay antipsychotic %. Process: % documented indication, % GDR attempt. PDSA reviewed each QAPI session; owner: Medical Director + Consultant Pharmacist.</p>`},
+  {label:"Action items",html:`<h2>Action Items</h2><div class="docsub">Auto-extracted · owners & due dates assigned</div><table class="tbl"><tr><th>Action</th><th>Owner</th><th>Due</th><th></th></tr><tr><td>Orthostatic protocol on new antihypertensive/diuretic + east-hall night-staffing review</td><td>DON</td><td>14 days</td><td></td></tr><tr><td>Review 4 antipsychotic outliers personally; set indication + GDR plan</td><td>Dr. Choi (CMO)</td><td>7 days</td><td><span class="poc">POC-linked</span></td></tr><tr><td>72-hour antibiotic time-out + mandatory stop-dates</td><td>Infection Prev.</td><td>14 days</td><td></td></tr><tr><td>Change-in-condition huddle for new CHF/diuretic starts</td><td>DON</td><td>14 days</td><td></td></tr><tr><td>Update & track Antipsychotic Reduction PIP</td><td>Medical Director</td><td>Ongoing</td><td><span class="poc">POC-linked</span></td></tr><tr><td>Reschedule nutrition/weight-loss review to top of next agenda</td><td>Dietary</td><td>Next meeting</td><td></td></tr></table>`}
+],md:`# QAPI Committee — Close-Out
+Magnolia Place, Georgetown TX — ${today()} — generated by Virtual CMO (synthetic demo)
+
+## Survey-Ready Minutes (42 CFR §483.75 / F865–F868)
+- Falls & falls w/ injury (F689): 3 falls east-hall nights; 2 on new diuretics; orthostatics not documented → orthostatic protocol + night-staffing review. Owner DON / 14d.
+- Antipsychotics & GDR (F758, QIPP N031.04): 15.2% > TX avg; 4 w/o indication → indication+GDR each; MD reviews outliers; linked to open PIP.
+- Infection & antibiotic stewardship (F881): 3 UTIs; 2 empiric pre-C&S; 1 no stop-date → 72h time-out + stop-dates. Owner IP / 14d.
+- Pressure injuries (F686): none new.
+- Readmissions: 12.3% (CHF/sepsis) → change-in-condition huddle. Owner DON / 14d.
+- Weight loss/nutrition (F692) — NOT ADDRESSED, flagged; deferred to next agenda.
+- Grievances (F585): 2, resolved.
+- Open PIP review (F867) — CORRECTED IN-MEETING: antipsychotic PIP surfaced before adjournment; progress logged.
+
+## PIP Charter — Reduce Long-Stay Antipsychotic Utilization (POC-linked)
+Aim: ≤12.0% within two quarters; 100% indication + GDR within 30 days.
+Root cause (5 Whys): no closed-loop owner between pharmacy review and prescriber action.
+Interventions: indication+GDR every order; monthly outlier list → MD; non-pharm first-line; QAPI dashboard.
+
+## Action Items
+| Action | Owner | Due | Flag |
+|---|---|---|---|
+| Orthostatic protocol + night-staffing review | DON | 14d | |
+| Review 4 antipsychotic outliers; set GDR | Dr. Choi | 7d | POC-linked |
+| 72h antibiotic time-out + stop-dates | Infection Prev. | 14d | |
+| Change-in-condition huddle (CHF/diuretic) | DON | 14d | |
+| Update & track antipsychotic PIP | Medical Director | Ongoing | POC-linked |
+| Reschedule nutrition review | Dietary | Next mtg | |
+
+Decision support only — verify against current CMS Appendix PP. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+
+function standupCloseout(){return{tabs:[
+  {label:"24-hour brief",html:`<h2>Morning Stand-Up — 24-Hour Clinical Brief</h2><div class="docsub">Magnolia Place · ${today()} · generated by Virtual CMO</div><div class="mins">
+    <div class="minrow"><div class="mh">New admissions<span class="ftg">F756</span></div><div class="md">Bed 12 (post-CHF, St. David's) and Bed 30 (post-hip ORIF). Bed 12 reconciliation still pending at huddle. <b>Action:</b> complete med rec + baseline weight + diuretic/daily-weight orders before noon.</div><div class="own">Owner: Unit Manager + NP · Due: today AM</div></div>
+    <div class="minrow flag"><div class="mh">Change in condition — Bed 12<span class="ftg">F684 · flagged</span></div><div class="md">New confusion/lethargy in a fresh CHF admit. <b>Action:</b> SBAR to provider now — vitals, O2 sat, UA, orthostatics (Stop & Watch).</div><div class="own">Owner: NP / Provider · Due: this AM</div></div>
+    <div class="minrow flag"><div class="mh">ED return — Bed 207<span class="ftg">INTERACT · flagged</span></div><div class="md">2nd ED visit in 30 days (UTI work-up). <b>Action:</b> start change-in-condition note; INTERACT avoidability review; escalate pattern to QAPI.</div><div class="own">Owner: DON · Due: today</div></div>
+    <div class="minrow flag"><div class="mh">Decreased intake — Bed 18<span class="ftg">F692 · flagged</span></div><div class="md">Decreased PO intake two days running; no owner at huddle. <b>Action:</b> dietitian referral, weight check, provider notice.</div><div class="own">Owner: Dietary + DON · Due: today</div></div>
+    <div class="minrow"><div class="mh">Behaviors / PRN psychotropic — Bed 22<span class="ftg">F758</span></div><div class="md">PRN lorazepam x1 overnight for agitation. <b>Action:</b> document indication + non-pharm tried; feed antipsychotic PIP/GDR.</div><div class="own">Owner: Unit Manager · Due: today</div></div>
+    <div class="minrow"><div class="mh">Falls / skin / staffing<span class="ftg">F689/F686</span></div><div class="md">One near-fall, no injury; no new wounds; staffing covered (2 agency fills overnight).</div><div class="own">Status: noted</div></div></div>`},
+  {label:"Change-in-condition tracker",html:`<h2>Change-in-Condition Tracker</h2><div class="docsub">Early-warning items requiring follow-up · INTERACT / Stop & Watch</div><table class="tbl"><tr><th>Resident</th><th>Signal</th><th>Action</th><th>Owner</th></tr><tr><td>Bed 12</td><td>New confusion / lethargy (CHF admit)</td><td>SBAR now; vitals, O2, UA, orthostatics</td><td>NP / Provider</td></tr><tr><td>Bed 207</td><td>2nd ED return / 30d (UTI)</td><td>CIC note; INTERACT review; QAPI escalation</td><td>DON</td></tr><tr><td>Bed 18</td><td>Decreased intake × 2 days</td><td>Dietitian referral; weight check</td><td>Dietary</td></tr><tr><td>Bed 22</td><td>PRN lorazepam (agitation)</td><td>Document indication + non-pharm</td><td>Unit Mgr</td></tr></table>`},
+  {label:"Escalations → QAPI",html:`<h2>Escalations to QAPI</h2><div class="docsub">Stand-up signals that should feed the quality program</div><table class="tbl"><tr><th>Item</th><th>Why it escalates</th><th>QAPI linkage</th></tr><tr><td>Bed 207 — repeat ED return</td><td>Readmission pattern (2 in 30d)</td><td>Hospitalization PIP · INTERACT root-cause <span class="poc">track</span></td></tr><tr><td>Bed 22 — PRN psychotropic</td><td>Psychotropic utilization signal</td><td>Antipsychotic Reduction PIP / GDR <span class="poc">track</span></td></tr><tr><td>Bed 18 — decreased intake</td><td>Avoidable weight-loss risk</td><td>Nutrition measure (QIPP N029.03)</td></tr></table>`}
+],md:`# Morning Stand-Up — Close-Out
+Magnolia Place, Georgetown TX — ${today()} — generated by Virtual CMO (synthetic demo)
+
+## 24-Hour Clinical Brief
+- New admissions: Bed 12 (post-CHF) reconciliation pending → complete med rec + baseline weight + orders by noon (F756). Bed 30 post-hip ORIF.
+- CHANGE IN CONDITION — Bed 12 (F684, flagged): new confusion/lethargy → SBAR now; vitals, O2 sat, UA, orthostatics.
+- ED RETURN — Bed 207 (INTERACT, flagged): 2nd visit in 30 days → start CIC note; avoidability review; escalate to QAPI.
+- DECREASED INTAKE — Bed 18 (F692, flagged): 2 days, no owner at huddle → dietitian referral, weight check, provider notice.
+- Behaviors — Bed 22: PRN lorazepam → document indication + non-pharm; feed antipsychotic PIP.
+- Falls/skin/staffing: one near-fall no injury; no new wounds; staffing covered.
+
+## Change-in-Condition Tracker
+| Resident | Signal | Action | Owner |
+|---|---|---|---|
+| Bed 12 | New confusion/lethargy | SBAR; vitals/O2/UA/orthostatics | NP/Provider |
+| Bed 207 | 2nd ED return/30d | CIC note; INTERACT; QAPI | DON |
+| Bed 18 | Decreased intake ×2d | Dietitian referral; weights | Dietary |
+| Bed 22 | PRN lorazepam | Document indication + non-pharm | Unit Mgr |
+
+## Escalations → QAPI
+- Bed 207 repeat ED return → Hospitalization PIP / INTERACT root-cause (track)
+- Bed 22 PRN psychotropic → Antipsychotic Reduction PIP / GDR (track)
+- Bed 18 decreased intake → Nutrition measure (QIPP N029.03)
+
+Decision support only — verify against current CMS Appendix PP. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+
+function triplecheckCloseout(){return{tabs:[
+  {label:"Audit summary",html:`<h2>Triple Check — Medicare Pre-Bill Audit</h2><div class="docsub">Magnolia Place · ${today()} · 14 Part A claims reviewed · generated by Virtual CMO</div><div class="mins">
+    <div class="minrow flag"><div class="mh">Bed 22 — physician certification<span class="ftg">HOLD · cert</span></div><div class="md">Part A certification unsigned. <b>Not payable</b> until signed. <b>Action:</b> attending signs today; hold claim until in chart.</div><div class="own">Owner: Business Office + Attending · Due: this week</div></div>
+    <div class="minrow flag"><div class="mh">Bed 14 — HIPPS / NTA integrity<span class="ftg">HOLD · NTA</span></div><div class="md">High NTA component; comorbidities may live only in the hospital record, not coded active diagnoses. <b>Action:</b> provider confirms + documents; HIM codes; re-verify HIPPS before billing.</div><div class="own">Owner: MDS + HIM + Provider · Due: this week</div></div>
+    <div class="minrow flag"><div class="mh">Bed 7 — skilled documentation<span class="ftg">HOLD · docs</span></div><div class="md">Two days thin on documented skilled need. <b>Action:</b> document the skilled need or the days aren't defensible on ADR.</div><div class="own">Owner: MDS Coordinator · Due: this week</div></div>
+    <div class="minrow"><div class="mh">Bed 9 — therapy vs MDS<span class="ftg">reconcile</span></div><div class="md">Therapy logs slightly under the MDS. <b>Action:</b> reconcile logs to assessment; correct MDS if overstated; confirm group+concurrent ≤25%/discipline.</div><div class="own">Owner: Rehab + MDS · Due: before bill</div></div>
+    <div class="minrow"><div class="mh">Bed 3 — benefit days<span class="ftg">coinsurance</span></div><div class="md">Approaching day 20; coinsurance begins day 21. <b>Action:</b> verify secondary insurance; give resident/family notice before liability changes.</div><div class="own">Owner: Business Office · Due: now</div></div>
+    <div class="minrow"><div class="mh">Remaining claims<span class="ftg">release</span></div><div class="md">MDS current (5-day in, one IPA on Bed 14); certifications otherwise signed; daily skilled notes complete on rehab. <b>Decision:</b> release the rest of the run.</div><div class="own">Status: cleared</div></div></div>`},
+  {label:"Claims to hold",html:`<h2>Claims to Hold</h2><div class="docsub">Do not release until cleared · reason + owner</div><table class="tbl"><tr><th>Resident</th><th>Reason</th><th>Fix</th><th>Owner</th></tr><tr><td>Bed 22</td><td>Unsigned physician certification</td><td>Attending signature in chart</td><td>Business Office</td></tr><tr><td>Bed 14</td><td>NTA comorbidities not coded/documented</td><td>Provider confirm + HIM code; re-verify HIPPS</td><td>MDS / HIM</td></tr><tr><td>Bed 7</td><td>Skilled need thinly documented (2 days)</td><td>Document skilled need</td><td>MDS Coord.</td></tr></table>`},
+  {label:"Escalations → QAPI",html:`<h2>Escalations to QAPI / Education</h2><div class="docsub">Documentation patterns worth a systemic fix</div><table class="tbl"><tr><th>Pattern</th><th>Why it matters</th><th>Linkage</th></tr><tr><td>NTA comorbidities not carried from hospital record into coded active diagnoses</td><td>Understated revenue + audit exposure on HIPPS</td><td>Coding/MDS workflow · admission dx capture <span class="poc">track</span></td></tr><tr><td>Late physician certifications</td><td>Hard claim denials</td><td>Certification tracking process <span class="poc">track</span></td></tr><tr><td>Thin daily skilled documentation</td><td>Undefensible skilled days on ADR/RAC</td><td>Skilled-charting education</td></tr></table>`}
+],md:`# Triple Check — Medicare Pre-Bill Audit
+Magnolia Place, Georgetown TX — ${today()} — generated by Virtual CMO (synthetic demo)
+
+## Audit Summary (14 Part A claims)
+- HOLD — Bed 22: physician certification unsigned (not payable until signed).
+- HOLD — Bed 14: high NTA HIPPS; comorbidities not confirmed as coded active diagnoses -> provider confirm + code, re-verify HIPPS.
+- HOLD — Bed 7: skilled documentation thin on 2 days -> document skilled need.
+- Reconcile — Bed 9: therapy logs under MDS -> correct MDS if overstated; confirm group+concurrent <=25%/discipline.
+- Watch — Bed 3: approaching benefit day 20; coinsurance begins day 21 -> verify secondary, give notice.
+- Release — remaining claims (MDS current, certs signed, skilled notes complete).
+
+## Claims to Hold
+| Resident | Reason | Fix | Owner |
+|---|---|---|---|
+| Bed 22 | Unsigned physician certification | Signature in chart | Business Office |
+| Bed 14 | NTA comorbidities not coded/documented | Confirm + code; re-verify HIPPS | MDS / HIM |
+| Bed 7 | Skilled need thinly documented | Document skilled need | MDS Coord. |
+
+## Escalations -> QAPI / Education
+- NTA capture at admission (hospital record -> coded active diagnoses) — revenue + audit exposure (track)
+- Certification tracking — prevents hard denials (track)
+- Skilled-charting education — defensible ADR documentation
+
+Decision support only — verify against current CMS billing guidance. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+
+const BRIEFINGS={qapi:qapiBriefing,standup:standupBriefing,triplecheck:triplecheckBriefing};
+function openBriefing(){
+  const ov=document.createElement('div');ov.className='overlay';ov.id='overlay';ov.onclick=e=>{if(e.target===ov)closeCo();};
+  const tabs=BRIEFINGS[CUR]().tabs;
+  ov.innerHTML=`<div class="sheet"><div class="sheet-h"><span class="mk" style="width:26px;height:26px;border:1.5px solid var(--glow);border-radius:50%;color:var(--glow);display:flex;align-items:center;justify-content:center;font-size:14px">◷</span><span class="ttl">Pre-Meeting Briefing${(curFac()?' — '+curFac().name:'')}</span><button class="x" onclick="closeCo()">✕</button></div>${briefingKpis()}<div class="tabs" id="brtabs">${tabs.map((t,i)=>`<button id="brtb-${i}" class="${i===0?'on':''}" onclick="brShow(${i})">${t.label}</button>`).join('')}</div><div class="doc" id="brdoc"></div><div class="dl"><button class="prime" onclick="downloadBriefing()">⬇ Download briefing (.md)</button><button onclick="closeCo()">Close</button></div></div>`;
+  document.body.appendChild(ov);brShow(0);
+}
+function brShow(i){const tabs=BRIEFINGS[CUR]().tabs;document.querySelectorAll('#brtabs button').forEach((b,j)=>b.classList.toggle('on',j===i));document.getElementById('brdoc').innerHTML=tabs[i].html;}
+function downloadBriefing(){const md=BRIEFINGS[CUR]().md;const blob=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=CUR+'-briefing-magnolia-place.md';a.click();}
+
+function qapiBriefing(){return{tabs:[
+  {label:"What to raise",html:`<h2>What the Virtual CMO flagged for this QAPI</h2><div class="docsub">Surveilled from the QM dashboard before the meeting · raise / verify each</div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Open PIP — Antipsychotic Reduction.</b> Opened last cycle as a Plan-of-Correction commitment; verify it is being <b>implemented</b>, not just re-discussed.<span class="wtag">F867</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Falls with major injury.</b> Cluster on east hall / nights; triangulate new diuretics → orthostatics → staffing.<span class="wtag">F689</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Antipsychotics 15.2% (&gt; TX avg).</b> 4 residents lack a documented indication; set GDR plans.<span class="wtag">F758 · N031.04</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Antibiotic stewardship.</b> Empiric starts before C&S and an order with no stop-date.<span class="wtag">F881</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Nutrition / weight loss.</b> Not reviewed the last two cycles — make sure it is covered today.<span class="wtag">F692 · N029.03</span></div></div>`},
+  {label:"Surveillance snapshot",html:`<h2>Facility snapshot</h2><div class="docsub">Synthetic QM data · drove the flags</div><div class="brief-snap">
+    <div class="snap"><div class="v bad">8.9%</div><div class="k">falls w/ injury · bm 3.4%</div></div>
+    <div class="snap"><div class="v bad">15.2%</div><div class="k">antipsychotic · bm 14.5%</div></div>
+    <div class="snap"><div class="v bad">3</div><div class="k">abx stewardship flags</div></div>
+    <div class="snap"><div class="v bad">12.3%</div><div class="k">30-day readmission</div></div>
+    <div class="snap"><div class="v ok">0</div><div class="k">new pressure injuries</div></div>
+    </div><p style="font-size:13px;color:#cdd1d8;line-height:1.6;margin-top:6px">Falls, antipsychotics, and CHF/sepsis readmissions overlap the same residents this period — a change-in-condition huddle on new CHF/diuretic starts would move all three. Nutrition has fallen off the agenda twice; the antipsychotic PIP is the open POC commitment most at risk of being closed without verification.</p>`},
+  {label:"Carry-over & radar",html:`<h2>Carry-over & survey radar</h2><div class="mins">
+    <div class="minrow flag"><div class="mh">Antipsychotic Reduction PIP — still open<span class="ftg">F867</span></div><div class="md">POC-linked; must be tracked to implementation. High risk of being discussed but not verified.</div></div>
+    <div class="minrow flag"><div class="mh">Nutrition review — deferred last cycle<span class="ftg">F692</span></div><div class="md">Log a make-up date if it slips again.</div></div>
+    <div class="minrow"><div class="mh">Survey radar<span class="ftg">2026</span></div><div class="md">CMS long-stay antipsychotic moves to a hybrid MDS+claims measure (eff. 2026-01-01); QIPP Component One dollars ride on antipsychotic, falls, UTI, weight-loss, ambulation.</div></div></div>`}
+],md:`# Pre-Meeting Briefing — QAPI Committee
+Magnolia Place, Georgetown TX — ${today()} — Virtual CMO (synthetic demo)
+
+## What to raise / verify
+- OPEN PIP — Antipsychotic Reduction (F867): verify implementation, not just discussion (POC commitment).
+- Falls w/ injury (F689): east-hall/nights cluster; diuretics -> orthostatics -> staffing.
+- Antipsychotics 15.2% > TX avg (F758/N031.04): 4 w/o documented indication; set GDR.
+- Antibiotic stewardship (F881): empiric pre-C&S + no stop-date.
+- Nutrition/weight loss (F692/N029.03): not reviewed last 2 cycles — cover it.
+
+## Surveillance snapshot
+falls w/ injury 8.9% (bm 3.4%) · antipsychotic 15.2% (bm 14.5%) · 3 stewardship flags · readmission 12.3% · 0 new PI.
+
+## Carry-over & radar
+- Antipsychotic Reduction PIP still open (F867, POC-linked).
+- Nutrition deferred last cycle (F692).
+- Radar: antipsychotic hybrid measure eff. 2026-01-01; QIPP Component One $ at risk.
+
+Decision support only. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+
+function standupBriefing(){return{tabs:[
+  {label:"What to raise",html:`<h2>Overnight — what the Virtual CMO flagged</h2><div class="docsub">From the 24-hour feed before the huddle</div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 12 — new CHF admit.</b> Confirm medication reconciliation, code status, and diuretic/daily-weight orders before noon.<span class="wtag">F756</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 207 — ED return, 2nd in 30 days.</b> Start a change-in-condition note; run INTERACT avoidability.<span class="wtag">INTERACT</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 12 — new confusion / lethargy.</b> SBAR to provider; vitals, O2, UA, orthostatics.<span class="wtag">F684</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 18 — decreased intake, 2 days.</b> Assign an owner: dietitian referral + weight check.<span class="wtag">F692</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 22 — PRN lorazepam overnight.</b> Document indication + non-pharm tried.<span class="wtag">F758</span></div></div>`},
+  {label:"Surveillance snapshot",html:`<h2>Last 24 hours</h2><div class="docsub">Synthetic overnight feed</div><div class="brief-snap">
+    <div class="snap"><div class="v">2</div><div class="k">new admissions</div></div>
+    <div class="snap"><div class="v bad">1</div><div class="k">ED return (2nd/30d)</div></div>
+    <div class="snap"><div class="v bad">1</div><div class="k">change in condition</div></div>
+    <div class="snap"><div class="v bad">1</div><div class="k">intake trend down (2d)</div></div>
+    <div class="snap"><div class="v">1</div><div class="k">PRN psychotropic</div></div>
+    </div><p style="font-size:13px;color:#cdd1d8;line-height:1.6;margin-top:6px">Two items are the kind that slip a busy huddle: Bed 207's ED return needs a change-in-condition note started (and it is a readmission pattern), and Bed 18's decreased intake has been noted two days with no owner. Both are on the watch list so they don't pass unaddressed.</p>`},
+  {label:"Carry-over & radar",html:`<h2>Carry-over & escalation radar</h2><div class="mins">
+    <div class="minrow flag"><div class="mh">Bed 207 — readmission pattern<span class="ftg">QAPI</span></div><div class="md">2nd ED visit in 30 days → escalate to the Hospitalization PIP with an INTERACT root-cause.</div></div>
+    <div class="minrow"><div class="mh">Bed 22 — psychotropic signal<span class="ftg">GDR</span></div><div class="md">Feeds the Antipsychotic Reduction PIP / gradual dose reduction review.</div></div></div>`}
+],md:`# Pre-Meeting Briefing — Morning Stand-Up
+Magnolia Place, Georgetown TX — ${today()} — Virtual CMO (synthetic demo)
+
+## What to raise (overnight)
+- Bed 12 new CHF admit (F756): med rec + code status + diuretic/daily-weight orders by noon.
+- Bed 207 ED return, 2nd/30d (INTERACT): start CIC note; avoidability review.
+- Bed 12 new confusion (F684): SBAR; vitals/O2/UA/orthostatics.
+- Bed 18 decreased intake x2d (F692): assign owner — dietitian + weights.
+- Bed 22 PRN lorazepam (F758): document indication + non-pharm.
+
+## Snapshot (24h)
+2 admits · 1 ED return (2nd/30d) · 1 change in condition · 1 intake trend down · 1 PRN psychotropic.
+
+## Carry-over & radar
+- Bed 207 -> Hospitalization PIP / INTERACT root-cause.
+- Bed 22 -> Antipsychotic PIP / GDR.
+
+Decision support only. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+
+function triplecheckBriefing(){return{tabs:[
+  {label:"What to raise",html:`<h2>Pre-bill scrub — what the Virtual CMO flagged</h2><div class="docsub">From claim scrubbing before the run · clear or hold each</div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 22 — physician certification unsigned.</b> Hard hold; not payable until signed.<span class="wtag">cert</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 14 — high NTA HIPPS.</b> Confirm comorbidities are coded active diagnoses with documentation, or the NTA tier will not hold.<span class="wtag">HIPPS · NTA</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 9 — therapy minutes vs MDS.</b> Reconcile logs to the assessment; correct the MDS if overstated.<span class="wtag">MDS</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 7 — thin skilled documentation.</b> Document the skilled need on the soft days.<span class="wtag">docs</span></div></div>
+    <div class="watchrow"><div class="wt">!</div><div class="wb"><b>Bed 3 — approaching benefit day 20.</b> Verify secondary insurance; give notice before day-21 coinsurance.<span class="wtag">benefit days</span></div></div>`},
+  {label:"Surveillance snapshot",html:`<h2>This cycle</h2><div class="docsub">Synthetic claim-scrub</div><div class="brief-snap">
+    <div class="snap"><div class="v">14</div><div class="k">Part A claims</div></div>
+    <div class="snap"><div class="v bad">3</div><div class="k">recommend hold</div></div>
+    <div class="snap"><div class="v bad">1</div><div class="k">HIPPS/NTA risk</div></div>
+    <div class="snap"><div class="v bad">1</div><div class="k">unsigned cert</div></div>
+    <div class="snap"><div class="v ok">11</div><div class="k">clear to release</div></div>
+    </div><p style="font-size:13px;color:#cdd1d8;line-height:1.6;margin-top:6px">Three claims should not go out with the run: the unsigned certification (a hard denial), the NTA HIPPS that overstates until coding catches up (a downcode on review), and the thin skilled documentation (undefensible on ADR). The rest are clean.</p>`},
+  {label:"Carry-over & radar",html:`<h2>Pattern radar → QAPI / education</h2><div class="mins">
+    <div class="minrow flag"><div class="mh">NTA capture at admission<span class="ftg">revenue</span></div><div class="md">Comorbidities sitting in the hospital record but not coded as active diagnoses — recurring downcode + audit exposure.</div></div>
+    <div class="minrow flag"><div class="mh">Certification tracking<span class="ftg">denials</span></div><div class="md">Late/unsigned certs cause hard denials — needs a tracking checkpoint.</div></div>
+    <div class="minrow"><div class="mh">Skilled-charting education<span class="ftg">ADR</span></div><div class="md">Thin daily skilled notes are undefensible on review.</div></div></div>`}
+],md:`# Pre-Meeting Briefing — Triple Check
+Magnolia Place, Georgetown TX — ${today()} — Virtual CMO (synthetic demo)
+
+## What to raise (pre-bill)
+- Bed 22 certification unsigned (cert): hard hold, not payable.
+- Bed 14 high NTA HIPPS (NTA): confirm comorbidities coded + documented or NTA will not hold.
+- Bed 9 therapy vs MDS (MDS): reconcile; correct MDS if overstated.
+- Bed 7 thin skilled docs (docs): document skilled need.
+- Bed 3 benefit day 20: verify secondary; notice before day-21 coinsurance.
+
+## Snapshot
+14 Part A claims · 3 recommend hold · 1 HIPPS/NTA risk · 1 unsigned cert · 11 clear.
+
+## Pattern radar -> QAPI / education
+- NTA capture at admission (revenue + audit exposure).
+- Certification tracking (prevents denials).
+- Skilled-charting education (defensible ADR).
+
+Decision support only. TX CPOM/TRAIGA: licensed clinicians decide.
+`};}
+/* ---- Persistence: Supabase Postgres (daybach-brain-dev · public.vcmo_meetings) ---- */
+const DB_URL='https://aorcuhugspylwfxlywvc.supabase.co';
+const DB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvcmN1aHVnc3B5bHdmeGx5d3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTM3NjAsImV4cCI6MjA5NTIyOTc2MH0.YqKrxprlaT7wxwGnEOy3M7JpI4pCVzhN1a8Tmmp1uCQ';
+const DB_HEADERS={apikey:DB_KEY,Authorization:'Bearer '+DB_KEY};
+const FN_URL='https://aorcuhugspylwfxlywvc.supabase.co/functions/v1/vcmo';
+const WRITE_TOKEN='vcmo-write-2026';
+const TYPE_LABEL={qapi:'QAPI',standup:'Stand-Up',triplecheck:'Triple Check'};
+let LOGROWS=[];
+async function saveMeeting(btn){
+  btn.disabled=true;btn.textContent='Saving…';
+  const covered=document.querySelectorAll('.aitem.covered').length,total=Math.max(M.agenda.length,1);
+  const flagged=document.querySelectorAll('.card.intervene li').length+document.querySelectorAll('.aitem.missed').length;
+  const rec={facility:(curFac()&&curFac().name)||'Magnolia Place',meeting_type:CUR,title:M.t1,coverage_pct:Math.round(covered/total*100),items_flagged:flagged,summary_md:M.closeout().md,payload:{agenda_covered:covered,agenda_total:total,generated_at:new Date().toISOString()}};
+  try{
+    const r=await fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'save_meeting',token:WRITE_TOKEN,record:rec})});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.saved){btn.textContent='Saved to log ✓';btn.style.background='var(--patina)';btn.style.color='#06130f';btn.style.borderColor='var(--patina)';}
+    else{btn.textContent='Save failed';btn.title=(d&&(d.error||d.detail))||('HTTP '+r.status);btn.disabled=false;}
+  }catch(e){btn.textContent='Save failed';btn.disabled=false;}
+}
+async function openLog(){
+  const ov=document.createElement('div');ov.className='overlay';ov.id='overlay';ov.onclick=e=>{if(e.target===ov)closeCo();};
+  ov.innerHTML=`<div class="sheet"><div class="sheet-h"><span class="mk" style="width:26px;height:26px;border:1.5px solid var(--glow);border-radius:50%;color:var(--glow);display:flex;align-items:center;justify-content:center;font-size:14px">◷</span><span class="ttl">Meeting Log</span><button class="x" onclick="closeCo()">✕</button></div><div class="doc" id="logdoc"><div class="thinking">Loading saved meetings<span class="sh"><i></i><i></i><i></i></span></div></div><div class="dl"><span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--ond)">daybach-brain-dev · public.vcmo_meetings</span><button onclick="closeCo()" style="margin-left:auto">Close</button></div></div>`;
+  document.body.appendChild(ov);
+  const doc=document.getElementById('logdoc');
+  try{
+    const fac=(curFac()&&curFac().name)||'Magnolia Place';
+    const r=await fetch(DB_URL+'/rest/v1/vcmo_meetings?select=*&facility=eq.'+encodeURIComponent(fac)+'&order=held_on.desc&limit=25',{headers:DB_HEADERS});
+    if(!r.ok){doc.innerHTML='<p style="color:var(--ember);font-size:13px">Could not load log ('+r.status+'). '+((await r.text()).slice(0,160))+'</p>';return;}
+    LOGROWS=await r.json();
+    if(!LOGROWS.length){doc.innerHTML='<div style="color:var(--ond);font-size:13px;padding:8px 0">No meetings saved yet for '+fac+'. Run a meeting, generate the close-out, then click \u201cSave to meeting log.\u201d</div>';return;}
+    doc.innerHTML='<div style="font-size:12px;color:var(--ond);margin-bottom:10px">'+LOGROWS.length+' saved for '+fac+' · newest first · click a row to view the close-out</div>'+LOGROWS.map((m,i)=>`<div class="minrow" style="cursor:pointer;border:1px solid var(--hair);border-radius:10px;padding:11px 13px;margin-bottom:8px" onclick="toggleLog(${i})"><div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:var(--on)">${m.title}<span style="margin-left:auto;font-size:10.5px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--hair2);border-radius:20px;padding:2px 9px;color:var(--glow)">${TYPE_LABEL[m.meeting_type]||m.meeting_type}</span></div><div style="font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--ond);margin-top:4px">${new Date(m.held_on).toLocaleString()} · coverage ${m.coverage_pct==null?'–':m.coverage_pct+'%'} · ${m.items_flagged==null?'–':m.items_flagged} flagged</div><div id="logsum-${i}" style="display:none;margin-top:9px"><pre style="white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.5;color:#bcc1c9;background:var(--ink);border:1px solid var(--hair);border-radius:8px;padding:11px;max-height:260px;overflow:auto">${(m.summary_md||'(no summary)').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</pre></div></div>`).join('');
+  }catch(e){doc.innerHTML='<p style="color:var(--ember);font-size:13px">Network error loading log.</p>';}
+}
+function toggleLog(i){const el=document.getElementById('logsum-'+i);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+/* ---- Facilities data layer (vcmo_facilities) · Portfolio · Surveillance · ANTICIPATE feed ---- */
+let FACILITIES=[],FACBY={},CURFAC=null;
+const BM={antipsychotic_pct:14.5,falls_inj_pct:3.4,uti_pct:2.8,weight_loss_pct:6.0,readmit_pct:13.0};
+const MKS='width:26px;height:26px;border:1.5px solid var(--glow);border-radius:50%;color:var(--glow);display:flex;align-items:center;justify-content:center;font-size:14px';
+function curFac(){return FACBY[CURFAC]||null;}
+function qmColor(k,v){if(v==null)return'var(--ond)';const b=BM[k];if(v<=b)return'var(--glow)';if(v<=b*1.2)return'var(--amber)';return'var(--ember)';}
+function occColor(o,b){const p=o/b*100;if(p>=92)return'var(--glow)';if(p>=85)return'var(--amber)';return'var(--ember)';}
+function starColor(n){if(n>=4)return'var(--glow)';if(n===3)return'var(--amber)';return'var(--ember)';}
+function riskColor(s){if(s>=75)return'var(--ember)';if(s>=60)return'var(--amber)';return'var(--glow)';}
+function kpi(label,val){return`<div style="background:var(--ink);border:1px solid var(--hair);border-radius:10px;padding:9px 13px;min-width:92px"><div style="font-size:10px;color:var(--ond);text-transform:uppercase;letter-spacing:.04em">${label}</div><div style="font-size:18px;font-weight:600;color:var(--on);margin-top:2px">${val}</div></div>`;}
+async function loadFacilities(){
+  try{
+    const r=await fetch(DB_URL+'/rest/v1/vcmo_facilities?select=*&order=name.asc',{headers:DB_HEADERS});
+    if(!r.ok)return;
+    FACILITIES=await r.json();FACBY={};FACILITIES.forEach(f=>FACBY[f.slug]=f);
+    if(!CURFAC)CURFAC=FACBY['magnolia-place']?'magnolia-place':((FACILITIES[0]||{}).slug||null);
+    const sel=document.getElementById('facsel');
+    if(sel)sel.innerHTML=FACILITIES.map(f=>`<option value="${f.slug}"${f.slug===CURFAC?' selected':''}>${f.name}</option>`).join('');
+  }catch(e){}
+}
+function setFacility(slug){CURFAC=slug;const ov=document.getElementById('overlay');if(ov&&ov.dataset.view==='surv')openSurveillance();}
+function briefingKpis(){const f=curFac();if(!f)return'';const occ=Math.round(f.occupied/f.beds*100),nr=(f.risk_json||[]).length;
+  return`<div style="display:flex;gap:9px;flex-wrap:wrap;padding:11px 0 8px;border-bottom:1px solid var(--hair);margin-bottom:2px">${kpi('Census',f.occupied+'/'+f.beds)}${kpi('Occupancy',occ+'%')}${kpi('Antipsychotic',f.antipsychotic_pct+'%')}${kpi('30-day readmit',f.readmit_pct+'%')}${kpi('Risk flags',nr)}</div><div style="font-size:10px;color:var(--ond);padding:5px 0 0">Live from public.vcmo_facilities · ANTICIPATE layer</div>`;}
+function openPortfolio(){
+  const o=document.createElement('div');o.className='overlay';o.id='overlay';o.dataset.view='port';o.onclick=e=>{if(e.target===o)closeCo();};
+  const F=FACILITIES.slice(),n=F.length||1;
+  const avg=k=>Math.round(F.reduce((a,f)=>a+(+f[k]||0),0)/n*10)/10;
+  const totB=F.reduce((a,f)=>a+(f.beds||0),0),totO=F.reduce((a,f)=>a+(f.occupied||0),0),totR=F.reduce((a,f)=>a+((f.risk_json||[]).length),0);
+  const rows=F.map(f=>{const occ=Math.round(f.occupied/f.beds*100);return`<tr style="cursor:pointer" onclick="CURFAC='${f.slug}';var s=document.getElementById('facsel');if(s)s.value='${f.slug}';closeCo();openSurveillance();"><td style="text-align:left;font-weight:600;color:var(--on)">${f.name}<div style="font-size:10px;color:var(--ond);font-weight:400">${f.city}</div></td><td style="color:${starColor(f.star_overall)};font-weight:600">${f.star_overall}★</td><td style="color:${occColor(f.occupied,f.beds)}">${occ}%<div style="font-size:9.5px;color:var(--ond)">${f.occupied}/${f.beds}</div></td><td style="color:${qmColor('antipsychotic_pct',f.antipsychotic_pct)};font-weight:600">${f.antipsychotic_pct}%</td><td style="color:${qmColor('falls_inj_pct',f.falls_inj_pct)};font-weight:600">${f.falls_inj_pct}%</td><td style="color:${qmColor('readmit_pct',f.readmit_pct)};font-weight:600">${f.readmit_pct}%</td><td style="color:${(f.risk_json||[]).length?'var(--amber)':'var(--ond)'};font-weight:600">${(f.risk_json||[]).length}</td></tr>`;}).join('');
+  o.innerHTML=`<div class="sheet" style="max-width:880px"><div class="sheet-h"><span class="mk" style="${MKS}">▦</span><span class="ttl">Portfolio — Caraday (${F.length} facilities)</span><button class="x" onclick="closeCo()">✕</button></div><div class="doc"><div style="display:flex;gap:11px;flex-wrap:wrap;margin-bottom:13px">${kpi('Beds',totB)}${kpi('Occupancy',Math.round(totO/totB*100)+'%')}${kpi('Avg antipsychotic',avg('antipsychotic_pct')+'%')}${kpi('Avg 30-day readmit',avg('readmit_pct')+'%')}${kpi('Open risk flags',totR)}</div><table class="ptbl"><thead><tr><th style="text-align:left">Facility</th><th>Five-Star</th><th>Occupancy</th><th>Antipsy</th><th>Falls inj</th><th>Readmit</th><th>Risks</th></tr></thead><tbody>${rows}</tbody></table><div style="font-size:10px;color:var(--ond);margin-top:10px">Color vs targets — antipsychotic 14.5% · falls w/ injury 3.4% · 30-day readmission 13% (illustrative). Click any facility to open its surveillance board.</div></div><div class="dl"><span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--ond)">daybach-brain-dev · public.vcmo_facilities</span><button onclick="closeCo()" style="margin-left:auto">Close</button></div></div>`;
+  document.body.appendChild(o);
+}
+let SURVTAB=0;
+function openSurveillance(tab){
+  SURVTAB=tab||0;
+  const f=curFac();const ex=document.getElementById('overlay');if(ex)ex.remove();
+  const o=document.createElement('div');o.className='overlay';o.id='overlay';o.dataset.view='surv';o.onclick=e=>{if(e.target===o)closeCo();};
+  if(!f){o.innerHTML='<div class="sheet"><div class="doc" style="padding:20px">No facility loaded yet.</div></div>';document.body.appendChild(o);return;}
+  const occ=Math.round(f.occupied/f.beds*100);
+  const labels=['Risk board','Infections','PDPM case-mix','Survey readiness'];
+  o.innerHTML=`<div class="sheet" style="max-width:840px"><div class="sheet-h"><span class="mk" style="${MKS}">◔</span><span class="ttl">Clinical Surveillance — ${f.name}</span><button class="x" onclick="closeCo()">✕</button></div>`
+    +`<div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 0 2px">${kpi('Census',f.occupied+'/'+f.beds)}${kpi('Occupancy',occ+'%')}${kpi('Five-Star',f.star_overall+'★')}${kpi('Admits 24h',f.admissions_24h)}${kpi('ED returns 24h',f.ed_returns_24h)}${kpi('Abx/wk',f.abx_starts)}</div>`
+    +`<div class="tabs" id="survtabs">${labels.map((t,i)=>`<button id="st-${i}" class="${i===SURVTAB?'on':''}" onclick="renderSurvTab(${i})">${t}</button>`).join('')}</div>`
+    +`<div class="doc" id="survbody"></div>`
+    +`<div class="dl"><button class="prime" onclick="closeCo();openBriefing();">Use in pre-meeting briefing →</button><span style="font-size:10.5px;font-family:'IBM Plex Mono',monospace;color:var(--ond);margin-left:8px">live · public.vcmo_facilities</span><button onclick="closeCo()" style="margin-left:auto">Close</button></div></div>`;
+  document.body.appendChild(o);renderSurvTab(SURVTAB);
+}
+function renderSurvTab(i){SURVTAB=i;document.querySelectorAll('#survtabs button').forEach((b,j)=>b.classList.toggle('on',j===i));const f=curFac();const el=document.getElementById('survbody');if(el)el.innerHTML=[survRisk,survInfections,survCasemix,survSurvey][i](f);}
+function survRisk(f){
+  const qmRow=(label,k)=>`<tr><td style="text-align:left;color:var(--on)">${label}</td><td style="color:${qmColor(k,f[k])};font-weight:600">${f[k]}%</td><td style="color:var(--ond)">${BM[k]}%</td></tr>`;
+  const risks=(f.risk_json||[]).map(r=>`<div style="border:1px solid var(--hair);border-left:3px solid ${riskColor(r.score)};border-radius:9px;padding:10px 12px;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:var(--on)">Bed ${r.bed}</span><span style="font-size:11px;color:${riskColor(r.score)}">${r.type}</span><span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:${riskColor(r.score)}">risk ${r.score}</span></div><div style="font-size:12px;color:var(--ond);margin-top:3px">${r.why}</div><div style="margin-top:5px"><span style="font-size:10px;font-family:'IBM Plex Mono',monospace;border:1px solid var(--hair2);border-radius:20px;padding:1px 8px;color:var(--glow)">${r.ftag}</span></div></div>`).join('')||'<div style="color:var(--ond);font-size:12px">No active risk flags.</div>';
+  return `<div style="font-weight:600;color:var(--on);margin:4px 0 7px;font-size:13px">Quality measures vs target</div><table class="ptbl"><thead><tr><th style="text-align:left">Measure</th><th>This facility</th><th>Target</th></tr></thead><tbody>${qmRow('Long-stay antipsychotic','antipsychotic_pct')}${qmRow('Falls with major injury','falls_inj_pct')}${qmRow('UTI','uti_pct')}${qmRow('Significant weight loss','weight_loss_pct')}${qmRow('30-day rehospitalization','readmit_pct')}</tbody></table><div style="font-weight:600;color:var(--on);margin:17px 0 8px;font-size:13px">Resident risk board <span style="font-weight:400;color:var(--ond);font-size:11px">· RTMS-style early warning · ${(f.risk_json||[]).length} flagged</span></div>${risks}`;
+}
+function survInfections(f){
+  const inf=f.infections_json||[];
+  const active=inf.filter(x=>x.status==='active').length, dot=inf.reduce((a,x)=>a+(x.dot||0),0);
+  const nocrit=inf.filter(x=>!x.criteria_met).length, cdiff=inf.filter(x=>(x.organism||'').toLowerCase().includes('diff')).length;
+  const rows=inf.map(x=>`<tr><td style="font-weight:600;color:var(--on)">${x.bed}</td><td style="text-align:left">${x.type}</td><td style="color:var(--ond)">${x.onset}</td><td style="text-align:left;color:var(--ond)">${x.organism}</td><td style="color:${x.criteria_met?'var(--glow)':'var(--ember)'}">${x.criteria_met?'met':'NOT met'}</td><td style="text-align:left;color:var(--ond)">${x.abx}</td><td>${x.dot||'—'}</td><td style="color:${x.status==='active'?'var(--amber)':'var(--ond)'}">${x.status}</td></tr>`).join('')||'<tr><td colspan="8" style="color:var(--ond)">No infection events on the line list.</td></tr>';
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px">${kpi('Active infections',active)}${kpi('Antibiotic days (DOT)',dot)}${kpi('Criteria NOT met',nocrit)}${kpi('C. difficile',cdiff)}</div><div style="font-weight:600;color:var(--on);margin:2px 0 7px;font-size:13px">NHSN infection line listing</div><table class="ptbl"><thead><tr><th>Bed</th><th style="text-align:left">Type</th><th>Onset</th><th style="text-align:left">Organism</th><th>McGeer/NHSN</th><th style="text-align:left">Antibiotic</th><th>DOT</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><div style="font-size:10px;color:var(--ond);margin-top:9px">“Criteria NOT met” = antibiotic started without McGeer/NHSN surveillance criteria documented — antibiotic-stewardship review flag (F881).</div>`;
+}
+function survCasemix(f){
+  const c=f.casemix_json||{};const claims=c.claims||[];
+  const rows=claims.map(x=>`<tr><td style="font-weight:600;color:var(--on)">${x.bed}</td><td style="font-family:'IBM Plex Mono',monospace">${x.hipps}</td><td>${x.nursing}</td><td>${x.pt}/${x.ot}</td><td>${x.slp}</td><td style="color:${x.nta_pts>=6?'var(--amber)':'var(--on)'}">${x.nta_pts}</td><td style="text-align:left;color:${x.flag?'var(--ember)':'var(--ond)'}">${x.flag||'—'}</td></tr>`).join('')||'<tr><td colspan="7" style="color:var(--ond)">No Part A claims staged.</td></tr>';
+  const dist=(c.hipps_top||[]).map(h=>`<span style="display:inline-block;border:1px solid var(--hair2);border-radius:7px;padding:4px 9px;margin:0 6px 6px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--on)">${h.code} <span style="color:var(--glow)">×${h.n}</span></span>`).join('');
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px">${kpi('Part A census',c.part_a??'—')}${kpi('Case-mix index',c.cmi??'—')}${kpi('Avg NTA points',c.nta_avg??'—')}${kpi('Claims flagged',claims.filter(x=>x.flag).length)}</div><div style="font-weight:600;color:var(--on);margin:2px 0 7px;font-size:13px">Top HIPPS distribution</div><div style="margin-bottom:14px">${dist||'<span style="color:var(--ond);font-size:12px">—</span>'}</div><div style="font-weight:600;color:var(--on);margin:2px 0 7px;font-size:13px">Part A claims — PDPM components <span style="font-weight:400;color:var(--ond);font-size:11px">(feeds Triple Check)</span></div><table class="ptbl"><thead><tr><th>Bed</th><th>HIPPS</th><th>Nursing</th><th>PT/OT</th><th>SLP</th><th>NTA pts</th><th style="text-align:left">Flag</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function survSurvey(f){
+  const s=f.survey_json||{};const tags=s.ftags||[];
+  const sc=s.readiness_score??0;const scColor=sc>=80?'var(--glow)':sc>=65?'var(--amber)':'var(--ember)';
+  const stColor=v=>v==='ready'?'var(--glow)':v==='at-risk'?'var(--amber)':'var(--ember)';
+  const gap=tags.filter(t=>t.status==='gap').length,ar=tags.filter(t=>t.status==='at-risk').length,rd=tags.filter(t=>t.status==='ready').length;
+  const rows=tags.map(t=>`<tr><td style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--on)">${t.ftag}</td><td style="text-align:left;color:var(--ond)">${t.domain}</td><td style="color:${stColor(t.status)};font-weight:600">${t.status}</td><td style="text-align:left;color:var(--ond)">${t.note}</td></tr>`).join('');
+  return `<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px"><div style="display:flex;flex-direction:column;align-items:center;background:var(--ink);border:1px solid var(--hair);border-radius:12px;padding:12px 18px"><div style="font-size:30px;font-weight:700;color:${scColor};line-height:1">${sc}</div><div style="font-size:10px;color:var(--ond);text-transform:uppercase;letter-spacing:.04em">Readiness / 100</div></div>${kpi('Days since survey',s.days_since??'—')}${kpi('Ready',rd)}${kpi('At-risk',ar)}${kpi('Gaps',gap)}</div><div style="font-weight:600;color:var(--on);margin:2px 0 7px;font-size:13px">F-tag scorecard <span style="font-weight:400;color:var(--ond);font-size:11px">· abaqis-style survey readiness · last survey ${s.last_survey||'—'}</span></div><table class="ptbl"><thead><tr><th>F-tag</th><th style="text-align:left">Domain</th><th>Status</th><th style="text-align:left">Focus</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+/* ---- Workspace: side-by-side SNF site + Virtual CMO LLM analysis ---- */
+const SNF_SITES=[
+ ['— pick a common SNF site —',''],
+ ['CMS Care Compare — Nursing homes','https://www.medicare.gov/care-compare/?providerType=NursingHome'],
+ ['CMS Provider Data — Nursing homes','https://data.cms.gov/provider-data/topics/nursing-homes'],
+ ['CDC NHSN — Long-term care','https://www.cdc.gov/nhsn/ltc/index.html'],
+ ['CMS QSO policy memos','https://www.cms.gov/medicare/provider-enrollment-and-certification/surveycertificationgeninfo/policy-and-memos-states-and-regions'],
+ ['State Operations Manual (Appendix PP)','https://www.cms.gov/regulations-and-guidance/guidance/manuals/internet-only-manuals-ioms-items/cms1201984'],
+ ['Texas HHS — Nursing facilities','https://www.hhs.texas.gov/providers/long-term-care-providers/nursing-facilities-nf'],
+ ['Texas HHS — QIPP','https://www.hhs.texas.gov/providers/long-term-care-providers/nursing-facilities-nf/quality-incentive-payment-program-qipp'],
+ ['PEPPER — provider reports','https://pepper.cbrpepper.org/'],
+ ['NPI Registry','https://npiregistry.cms.hhs.gov/'],
+ ['PointClickCare (login — opens in tab)','https://login.pointclickcare.com/'],
+ ['iQIES (login — opens in tab)','https://iqies.cms.gov/'],
+ ['SimpleLTC (login — opens in tab)','https://www.simpleltc.com/'],
+];
+function mdLite(s){
+  s=String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  s=s.replace(/^### (.*)$/gm,'<div style="font-weight:700;color:var(--on);margin:10px 0 4px">$1</div>');
+  s=s.replace(/^## (.*)$/gm,'<div style="font-weight:700;color:var(--glow);margin:12px 0 5px;font-size:14px">$1</div>');
+  s=s.replace(/^# (.*)$/gm,'<div style="font-weight:700;color:var(--glow);margin:4px 0 8px;font-size:15px">$1</div>');
+  s=s.replace(/\*\*(.+?)\*\*/g,'<b style="color:var(--on)">$1</b>');
+  s=s.replace(/^\s*[-*] (.*)$/gm,'<div style="margin:2px 0 2px 12px">• $1</div>');
+  s=s.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+  return s;
+}
+function openWorkspace(){
+  const ex=document.getElementById('overlay');if(ex)ex.remove();
+  const o=document.createElement('div');o.className='overlay';o.id='overlay';o.dataset.view='ws';o.onclick=e=>{if(e.target===o)closeCo();};
+  const opts=SNF_SITES.map(s=>`<option value="${s[1]}">${s[0]}</option>`).join('');
+  o.innerHTML=`<div class="sheet" style="max-width:1180px;width:96vw;height:88vh;display:flex;flex-direction:column">
+    <div class="sheet-h"><span class="mk" style="${MKS}">⧉</span><span class="ttl">Workspace — SNF site + Virtual CMO</span><button class="x" onclick="closeCo()">✕</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0 6px">
+      <select id="wsdir" class="facsel" style="max-width:260px;margin:0" onchange="if(this.value){document.getElementById('wsurl').value=this.value;wsGo();}">${opts}</select>
+      <input id="wsurl" placeholder="https://… paste any URL" style="flex:1;min-width:220px;background:var(--ink3);border:1px solid var(--hair2);color:var(--on);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit" onkeydown="if(event.key==='Enter')wsGo()">
+      <button class="closeoutbtn" onclick="wsGo()">Go</button>
+      <button class="closeoutbtn" onclick="wsOpenTab()">Open in new tab ↗</button>
+      <button class="closeoutbtn" style="border-color:var(--patina);color:var(--glow)" onclick="wsAnalyze()">Analyze with Virtual CMO</button>
+    </div>
+    <div style="font-size:10.5px;color:var(--ond);padding:0 0 8px">Login-gated EHR/EMR sites (PointClickCare, iQIES…) block embedding and server-side fetch — use “Open in new tab,” then paste the content into the analysis panel. Public pages (CMS, CDC, Texas HHS) load and analyze directly. The app cannot read an embedded site’s contents (browser same-origin rule).</div>
+    <div style="display:flex;gap:12px;flex:1;min-height:0">
+      <div style="width:38%;min-width:280px;display:flex;flex-direction:column;border:1px solid var(--hair);border-radius:10px;padding:11px;background:var(--ink2)">
+        <div style="font-weight:600;color:var(--on);font-size:13px;margin-bottom:6px">Virtual CMO analysis</div>
+        <div id="wsres" style="font-size:12.5px;color:var(--ond);line-height:1.55;overflow:auto;flex:1">Pick or paste a URL, then <b style="color:var(--on)">Analyze with Virtual CMO</b>. For login-gated sites, open in a new tab and paste the page text below.</div>
+        <div style="border-top:1px solid var(--hair);margin-top:8px;padding-top:8px">
+          <textarea id="wspaste" placeholder="Paste content from a secured site (e.g. a PointClickCare screen) to analyze…" style="width:100%;height:78px;background:var(--ink);border:1px solid var(--hair2);border-radius:8px;color:var(--on);font-family:inherit;font-size:12px;padding:8px;resize:vertical"></textarea>
+          <button class="closeoutbtn" style="margin-top:6px;width:100%" onclick="wsAnalyzePaste()">Analyze pasted text →</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;border:1px solid var(--hair2);border-radius:10px;overflow:hidden;background:#fff">
+        <iframe id="wsframe" title="site" style="width:100%;height:100%;border:0" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+      </div>
+    </div></div>`;
+  document.body.appendChild(o);
+}
+function wsGo(){const u=(document.getElementById('wsurl')||{}).value||'';if(!/^https?:\/\//i.test(u)){alert('Enter a full http(s) URL.');return;}document.getElementById('wsframe').src=u;}
+function wsOpenTab(){const u=(document.getElementById('wsurl')||{}).value||'';if(!/^https?:\/\//i.test(u)){alert('Enter a full http(s) URL.');return;}window.open(u,'_blank','noopener');}
+async function wsAnalyze(){
+  const u=(document.getElementById('wsurl')||{}).value||'';const res=document.getElementById('wsres');
+  if(!/^https?:\/\//i.test(u)){res.innerHTML='<span style="color:var(--amber)">Enter a full http(s) URL first.</span>';return;}
+  res.innerHTML='<div class="thinking">Fetching &amp; analyzing the page<span class="sh"><i></i><i></i><i></i></span></div>';
+  try{
+    const r=await fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'analyze_url',url:u})});
+    const d=await r.json().catch(()=>({}));
+    if(d.answer){res.innerHTML='<div style="font-size:10.5px;color:var(--ond);margin-bottom:8px">Source: '+u+'</div>'+mdLite(d.answer);}
+    else if(d.error==='not_configured'){res.innerHTML='<span style="color:var(--amber)">Live analysis isn\u2019t switched on yet — add ANTHROPIC_API_KEY in the Edge Function secrets.</span>';}
+    else{res.innerHTML='<span style="color:var(--amber)">'+mdLite(d.message||('Could not analyze (HTTP '+r.status+').'))+'</span><div style="margin-top:8px;font-size:11.5px">Tip: open the site in a new tab and paste the relevant text below.</div>';}
+  }catch(e){res.innerHTML='<span style="color:var(--ember)">Network error contacting the analyzer.</span>';}
+}
+async function wsAnalyzePaste(){
+  const t=(document.getElementById('wspaste')||{}).value||'';const res=document.getElementById('wsres');
+  if(t.trim().length<20){res.innerHTML='<span style="color:var(--amber)">Paste a bit more text to analyze.</span>';return;}
+  res.innerHTML='<div class="thinking">Analyzing pasted content<span class="sh"><i></i><i></i><i></i></span></div>';
+  try{
+    const r=await fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'Analyze this content captured from an external SNF/EHR page. Give CMO decision support: brief summary, the relevant CMS F-tags or QIPP/Five-Star measures, reimbursement/PDPM or infection-control angles if any, and concrete next actions.',context:t.slice(0,8000),meeting:'Workspace — pasted content'})});
+    const d=await r.json().catch(()=>({}));
+    if(d.answer){res.innerHTML=mdLite(d.answer);}
+    else if(d.error==='not_configured'){res.innerHTML='<span style="color:var(--amber)">Live analysis isn\u2019t switched on yet — add ANTHROPIC_API_KEY in the Edge Function secrets.</span>';}
+    else{res.innerHTML='<span style="color:var(--amber)">'+mdLite(d.message||'No analysis generated.')+'</span>';}
+  }catch(e){res.innerHTML='<span style="color:var(--ember)">Network error contacting the analyzer.</span>';}
+}
+loadFacilities();
+</script>
+</body>
+</html>
