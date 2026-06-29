@@ -1,0 +1,270 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROFOUND — Knowledge Elicitation Engine</title>
+<style>
+:root{
+  --bg:#0e1217; --panel:#161c24; --panel2:#1b222c; --line:#28323f; --txt:#e6edf3;
+  --muted:#8b97a7; --accent:#3fb6a8; --accent2:#5cc8bd; --gold:#d9a441; --warn:#e0653f;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);height:100vh;overflow:hidden}
+header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#19212b,#141a22)}
+.brand{font-weight:700;letter-spacing:.5px}
+.brand small{display:block;font-weight:400;color:var(--muted);font-size:11px;letter-spacing:1.5px}
+header .sp{flex:1}
+select,input,button,textarea{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none}
+input::placeholder,textarea::placeholder{color:#5d6b7c}
+button{cursor:pointer;background:var(--panel2);transition:.15s}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#06231f;border-color:var(--accent);font-weight:600}
+button.primary:hover{background:var(--accent2)}
+button.ghost{background:transparent}
+.wrap{display:grid;grid-template-columns:1fr 360px;height:calc(100vh - 59px)}
+.conv{display:flex;flex-direction:column;border-right:1px solid var(--line);min-width:0}
+.stream{flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:78%;padding:12px 15px;border-radius:14px;line-height:1.5;white-space:pre-wrap;font-size:14.5px}
+.msg.int{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent)}
+.msg.exp{align-self:flex-end;background:#223041;border:1px solid #2c3e52}
+.msg .who{font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:.5px}
+.composer{border-top:1px solid var(--line);padding:14px;display:flex;gap:10px;background:#121822}
+.composer textarea{flex:1;resize:none;height:64px}
+.rail{overflow-y:auto;padding:16px;background:#10161e;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11px;padding:4px 8px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+.chip.on{background:rgba(63,182,168,.16);border-color:var(--accent);color:var(--accent2)}
+.sig{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0}
+.sig .n{min-width:26px;text-align:center;border-radius:6px;background:#202a36;color:var(--muted);font-size:12px;padding:1px 6px}
+.sig .n.hot{background:var(--accent);color:#06231f;font-weight:700}
+.opp{font-size:13px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;background:var(--panel2)}
+.opp .t{font-weight:600;line-height:1.35}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;margin-top:5px}
+.badge.agent{background:rgba(217,164,65,.16);color:var(--gold);border:1px solid #4a3c1e}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:var(--muted);font-size:12.5px;line-height:1.5}
+.overlay{position:fixed;inset:0;background:rgba(6,9,13,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:24px}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:920px;width:100%;max-height:86vh;overflow:auto;padding:22px}
+.modal h2{margin:0 0 4px;font-size:18px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.tag.now{background:rgba(63,182,168,.18);color:var(--accent2)}
+.tag.pilot{background:rgba(217,164,65,.18);color:var(--gold)}
+.tag.park{background:#222b36;color:var(--muted)}
+.score{font-variant-numeric:tabular-nums;font-weight:700}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#3a1f18;border:1px solid var(--warn);color:#ffd9cc;padding:10px 16px;border-radius:10px;display:none;z-index:99;font-size:13px;max-width:80%}
+.spin{width:14px;height:14px;border:2px solid #ffffff33;border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:r .7s linear infinite;vertical-align:-2px}
+@keyframes r{to{transform:rotate(360deg)}}
+label.fld{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px}
+.modal textarea,.modal input{width:100%}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">PROFOUND<small>KNOWLEDGE ELICITATION ENGINE</small></div>
+  <div class="sp"></div>
+  <select id="tpl" title="Interview template"></select>
+  <input id="expert" placeholder="Expert (e.g. Dr. Choi)" style="width:150px"/>
+  <input id="interviewer" placeholder="Interviewer" style="width:120px"/>
+  <button class="primary" id="startBtn">Start</button>
+  <button class="ghost" id="newSme" title="Draft a template for a new Super-SME">+ New SME</button>
+</header>
+
+<div class="wrap">
+  <div class="conv">
+    <div class="stream" id="stream">
+      <div class="msg int"><div class="who">PROFOUND</div>Pick a template, name the expert, and hit Start. I will run the interview one question at a time — your job is to type back what the expert actually says.</div>
+    </div>
+    <div class="composer">
+      <textarea id="answer" placeholder="Type the expert's answer here…  (Cmd/Ctrl+Enter to send)" disabled></textarea>
+      <button class="primary" id="sendBtn" disabled>Send</button>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="card">
+      <h3>Coverage</h3>
+      <div class="chips" id="blocks"><span class="muted">No session yet.</span></div>
+    </div>
+    <div class="card">
+      <h3>Signals detected</h3>
+      <div id="signals"><span class="muted">—</span></div>
+    </div>
+    <div class="card">
+      <h3>Captured opportunities <span id="oppCount" class="muted"></span></h3>
+      <div id="opps"><span class="muted">Pains get captured here as they surface.</span></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="convBtn" disabled style="flex:1">Converge → backlog</button>
+        <button id="exportBtn" disabled>Export</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="convModal"><div class="modal">
+  <div class="row" style="justify-content:space-between"><h2>Ranked opportunity backlog</h2><button class="ghost" onclick="closeModal('convModal')">Close</button></div>
+  <div class="muted">Clustered from captured insights, scored on the template rubric, bucketed by value × feasibility with safety as a gate.</div>
+  <div id="convBody"></div>
+</div></div>
+
+<div class="overlay" id="genModal"><div class="modal">
+  <div class="row" style="justify-content:space-between"><h2>Draft a new Super-SME template</h2><button class="ghost" onclick="closeModal('genModal')">Close</button></div>
+  <div class="muted">Describe the expert and what you want to extract. Claude drafts a full interview template (blocks, probes, signals, rubric) you can use immediately.</div>
+  <label class="fld">Domain</label><input id="gDomain" placeholder="e.g. Revenue-cycle management for SNFs"/>
+  <label class="fld">Expert persona</label><input id="gExpert" placeholder="e.g. VP of Revenue Cycle, 20 yrs in post-acute billing"/>
+  <label class="fld">Objective of the elicitation</label><textarea id="gObj" rows="2" placeholder="e.g. Find where AI/agents can cut denials and accelerate cash"></textarea>
+  <div class="row" style="margin-top:14px"><button class="primary" id="genBtn">Draft template</button><span id="genStatus" class="muted"></span></div>
+  <div id="genPreview"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API="https://aorcuhugspylwfxlywvc.supabase.co/functions/v1/interviewer";
+const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvcmN1aHVnc3B5bHdmeGx5d3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTM3NjAsImV4cCI6MjA5NTIyOTc2MH0.YqKrxprlaT7wxwGnEOy3M7JpI4pCVzhN1a8Tmmp1uCQ";
+const ST={sessionId:null,template:null,covered:new Set(),sig:{},opps:0};
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",5000);}
+function closeModal(id){$(id).style.display="none";}
+async function api(action,payload){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify(Object.assign({action},payload||{}))});
+  const d=await r.json();
+  if(d&&d.error) throw new Error(d.error);
+  return d;
+}
+function bubble(role,text){
+  const el=document.createElement("div");
+  el.className="msg "+(role==="expert"?"exp":"int");
+  el.innerHTML='<div class="who">'+(role==="expert"?"EXPERT":"PROFOUND")+'</div>'+escapeHtml(text);
+  $("stream").appendChild(el); $("stream").scrollTop=$("stream").scrollHeight;
+}
+function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+async function loadTemplates(){
+  try{
+    const d=await api("list_templates");
+    const sel=$("tpl"); sel.innerHTML="";
+    (d.templates||[]).forEach(t=>{
+      const o=document.createElement("option"); o.value=t.slug;
+      o.textContent=t.title+(t.status==="draft"?" (draft)":""); sel.appendChild(o);
+    });
+  }catch(e){toast("Load templates failed: "+e.message);}
+}
+function renderBlocks(){
+  const c=$("blocks"); c.innerHTML="";
+  (ST.template.blocks||[]).forEach(b=>{
+    const s=document.createElement("span");
+    s.className="chip"+(ST.covered.has(b.id)?" on":""); s.textContent=b.id+" · "+b.title; s.title=b.title;
+    c.appendChild(s);
+  });
+}
+function renderSignals(){
+  const c=$("signals");
+  const defs=(ST.template.signals||[]);
+  if(!defs.length){c.innerHTML='<span class="muted">—</span>';return;}
+  c.innerHTML="";
+  defs.forEach(d=>{
+    const n=ST.sig[d.key]||0;
+    const row=document.createElement("div"); row.className="sig";
+    row.innerHTML='<span title="'+escapeHtml(d.label)+'">'+escapeHtml(d.label)+'</span><span class="n'+(n>0?" hot":"")+'">'+n+'</span>';
+    c.appendChild(row);
+  });
+}
+function addOpp(ins){
+  if(ST.opps===0)$("opps").innerHTML="";
+  ST.opps++; $("oppCount").textContent="("+ST.opps+")";
+  const d=document.createElement("div"); d.className="opp";
+  d.innerHTML='<div class="t">'+escapeHtml(ins.title)+'</div>'+(ins.agent_shaped?'<span class="badge agent">agent-shaped</span>':'');
+  $("opps").prepend(d);
+}
+
+async function start(){
+  const slug=$("tpl").value; if(!slug){toast("Pick a template");return;}
+  $("startBtn").disabled=true; $("startBtn").innerHTML='<span class="spin"></span>';
+  try{
+    const d=await api("start",{template_slug:slug,interviewee:$("expert").value,interviewer:$("interviewer").value});
+    ST.sessionId=d.session_id; ST.template=d.template; ST.covered=new Set([d.block_id]); ST.sig={}; ST.opps=0;
+    $("stream").innerHTML=""; $("opps").innerHTML='<span class="muted">Pains get captured here as they surface.</span>'; $("oppCount").textContent="";
+    bubble("interviewer",d.message);
+    renderBlocks(); renderSignals();
+    $("answer").disabled=false; $("sendBtn").disabled=false; $("convBtn").disabled=false; $("exportBtn").disabled=false;
+    $("answer").focus();
+  }catch(e){toast("Start failed: "+e.message);}
+  $("startBtn").disabled=false; $("startBtn").textContent="Start";
+}
+async function send(){
+  const v=$("answer").value.trim(); if(!v||!ST.sessionId)return;
+  bubble("expert",v); $("answer").value=""; $("answer").disabled=true; $("sendBtn").disabled=true; $("sendBtn").innerHTML='<span class="spin"></span>';
+  try{
+    const d=await api("respond",{session_id:ST.sessionId,answer:v});
+    bubble("interviewer",(d.ack?d.ack+" ":"")+(d.next_question||""));
+    (d.signals||[]).forEach(k=>{ST.sig[k]=(ST.sig[k]||0)+1;});
+    if(d.progress&&d.progress.covered){ST.covered=new Set(d.progress.covered);}
+    if(d.block_id)ST.covered.add(d.block_id);
+    renderBlocks(); renderSignals();
+    if(d.insight)addOpp(d.insight);
+    if(d.done)toast("All blocks covered — hit Converge → backlog.");
+  }catch(e){toast("Respond failed: "+e.message);}
+  $("answer").disabled=false; $("sendBtn").disabled=false; $("sendBtn").textContent="Send"; $("answer").focus();
+}
+async function converge(){
+  $("convBtn").disabled=true; $("convBtn").innerHTML='<span class="spin"></span> Synthesizing';
+  try{
+    const d=await api("converge",{session_id:ST.sessionId});
+    const dims=(d.rubric||[]).map(x=>x.key);
+    let h="";
+    if(!(d.opportunities||[]).length){h='<div class="muted" style="margin-top:14px">'+escapeHtml(d.note||"Nothing captured yet.")+'</div>';}
+    else{
+      h='<table><thead><tr><th>#</th><th>Opportunity</th><th>Bucket</th><th>Score</th>'+dims.map(x=>'<th>'+x+'</th>').join('')+'<th>First test</th></tr></thead><tbody>';
+      (d.opportunities||[]).forEach((o,i)=>{
+        const sc=o.scores||{};
+        h+='<tr><td>'+(i+1)+'</td><td><div style="font-weight:600">'+escapeHtml(o.title)+(o.agent_shaped?' <span class="badge agent">agent</span>':'')+'</div><div class="muted">'+escapeHtml(o.summary||"")+'</div>'+(o.hitl_point?'<div class="muted">↳ sign-off: '+escapeHtml(o.hitl_point)+'</div>':'')+'</td>'+
+        '<td><span class="tag '+(o.bucket==="build-now"?"now":o.bucket==="pilot"?"pilot":"park")+'">'+escapeHtml(o.bucket||"")+'</span></td>'+
+        '<td class="score">'+(o.weighted_score!=null?o.weighted_score:"—")+'</td>'+
+        dims.map(x=>'<td>'+(sc[x]!=null?sc[x]:"–")+'</td>').join('')+
+        '<td class="muted">'+escapeHtml(o.first_test||"")+'</td></tr>';
+      });
+      h+='</tbody></table>';
+    }
+    $("convBody").innerHTML=h; $("convModal").style.display="flex";
+  }catch(e){toast("Converge failed: "+e.message);}
+  $("convBtn").disabled=false; $("convBtn").textContent="Converge → backlog";
+}
+async function doExport(){
+  try{
+    const d=await api("export",{session_id:ST.sessionId,format:"markdown"});
+    const blob=new Blob([d.markdown||""],{type:"text/markdown"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=(ST.template?ST.template.slug:"interview")+"-session.md"; a.click();
+  }catch(e){toast("Export failed: "+e.message);}
+}
+async function genTemplate(){
+  $("genBtn").disabled=true; $("genStatus").innerHTML='<span class="spin"></span> drafting…';
+  try{
+    const d=await api("generate_template",{domain:$("gDomain").value,expert_persona:$("gExpert").value,objective:$("gObj").value});
+    const p=d.preview||{};
+    $("genPreview").innerHTML='<div class="card" style="margin-top:14px"><div style="font-weight:600;margin-bottom:6px">'+escapeHtml(p.title||"")+'</div><div class="chips">'+(p.blocks||[]).map(b=>'<span class="chip">'+b.id+' · '+escapeHtml(b.title)+'</span>').join('')+'</div></div>';
+    $("genStatus").textContent="Saved as draft — refreshing list.";
+    await loadTemplates();
+    if(d.template&&d.template.slug)$("tpl").value=d.template.slug;
+  }catch(e){toast("Generate failed: "+e.message); $("genStatus").textContent="";}
+  $("genBtn").disabled=false;
+}
+
+$("startBtn").onclick=start;
+$("sendBtn").onclick=send;
+$("convBtn").onclick=converge;
+$("exportBtn").onclick=doExport;
+$("newSme").onclick=()=>{$("genModal").style.display="flex";};
+$("genBtn").onclick=genTemplate;
+$("answer").addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key==="Enter")send();});
+loadTemplates();
+</script>
+</body>
+</html>
