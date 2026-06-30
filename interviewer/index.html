@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>PROFOUND — Voice Knowledge Elicitation</title>
+<title>PROFOUND — Neural Voice Elicitation</title>
 <style>
 :root{--bg:#0e1217;--panel:#161c24;--panel2:#1b222c;--line:#28323f;--txt:#e6edf3;--muted:#8b97a7;--accent:#3fb6a8;--accent2:#5cc8bd;--gold:#d9a441;--warn:#e0653f;}
 *{box-sizing:border-box}
@@ -75,9 +75,9 @@ label.fld{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px}
 </head>
 <body>
 <header>
-  <div class="brand">PROFOUND<small>NATURAL VOICE · ELEVENLABS + WHISPER</small></div>
+  <div class="brand">PROFOUND<small>NEURAL VOICE · ELEVENLABS + WHISPER</small></div>
   <div class="sp"></div>
-  <button class="ghost" id="voiceBtn" title="Hands-free voice conversation">🎙 Voice: off</button>
+  <button class="ghost" id="voiceBtn" title="Hands-free natural-voice conversation">🎙 Voice: off</button>
   <select id="tpl" title="Interview template"></select>
   <input id="expert" placeholder="Expert (e.g. Dr. Choi)" style="width:140px"/>
   <input id="interviewer" placeholder="Interviewer" style="width:110px"/>
@@ -88,7 +88,7 @@ label.fld{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px}
 <div class="wrap">
   <div class="conv">
     <div class="stream" id="stream">
-      <div class="msg int"><div class="who">PROFOUND</div>Pick a template, name the expert, and hit Start. Turn on <b>Voice</b> for a hands-free conversation — I speak each question in a natural voice, listen to the answer, transcribe it (you can edit before it submits), and move on when you pause. Voice needs Chrome and the https link, and asks for mic permission once.</div>
+      <div class="msg int"><div class="who">PROFOUND</div>Pick a template, name the expert, and hit Start. Turn on <b>Voice</b> for a natural spoken conversation — a real voice asks each question, listens, transcribes with Whisper (tuned for clinical terms and accents), and moves on when you pause. Your words appear in the box first so you can fix any mis-hear before it submits. Use Chrome + the https link, and allow the mic once.</div>
     </div>
     <div class="statusbar" id="statusBar">
       <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">Ready</span></span>
@@ -96,7 +96,7 @@ label.fld{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px}
     </div>
     <div class="composer">
       <textarea id="answer" placeholder="Type the expert's answer…  (Cmd/Ctrl+Enter to send) — or tap the mic" disabled></textarea>
-      <button class="micbtn" id="micBtn" title="Tap to record / tap again to stop" disabled>🎤</button>
+      <button class="micbtn" id="micBtn" title="Tap to talk / tap to stop" disabled>🎤</button>
       <button class="primary" id="sendBtn" disabled>Send</button>
     </div>
   </div>
@@ -138,13 +138,13 @@ const API="https://aorcuhugspylwfxlywvc.supabase.co/functions/v1/interviewer";
 const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvcmN1aHVnc3B5bHdmeGx5d3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTM3NjAsImV4cCI6MjA5NTIyOTc2MH0.YqKrxprlaT7wxwGnEOy3M7JpI4pCVzhN1a8Tmmp1uCQ";
 const ST={sessionId:null,template:null,covered:new Set(),sig:{},opps:0};
 const $=id=>document.getElementById(id);
-function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",6000);}
+function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",5500);}
 function closeModal(id){$(id).style.display="none";}
 function escapeHtml(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 async function api(action,payload){
   const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify(Object.assign({action},payload||{}))});
   const d=await r.json();
-  if(d&&d.error&&action!=="tts"&&action!=="stt") throw new Error(d.error);
+  if(d&&d.error) throw new Error(d.error);
   return d;
 }
 function bubble(role,text){
@@ -154,113 +154,116 @@ function bubble(role,text){
   $("stream").appendChild(el); $("stream").scrollTop=$("stream").scrollHeight;
 }
 
-/* ============== VOICE ENGINE — ElevenLabs TTS + Whisper STT ============== */
-let voiceMode=false, speaking=false, recording=false, lastQuestion="";
-let mediaStream=null, mediaRec=null, recChunks=[], recMime="audio/webm";
-let audioCtx=null, vadRAF=null, curAudio=null, pendingSubmit=null;
+/* ============ NEURAL VOICE ENGINE (ElevenLabs TTS + Whisper STT) ============ */
+let voiceMode=false, speaking=false, recording=false, audioEl=null, mediaStream=null, mediaRec=null, chunks=[], vadCtx=null, autoTimer=null, lastQuestion="";
 
 function setStatus(s){
   if(!voiceMode){ $("statusBar").style.display="none"; $("micBtn").classList.remove("live"); return; }
   $("statusBar").style.display="flex";
   $("statusDot").className="dot"+(s==="listening"?" listen":s==="speaking"?" speak":(s==="thinking"||s==="review")?" think":"");
-  const map={listening:"Listening",speaking:"Speaking",thinking:"Transcribing",review:"Heard it",idle:"Ready"};
-  const hint={listening:"Talk now — I stop when you pause.",speaking:"…",thinking:"Working on what you said.",review:"Edit the text or just wait — sending shortly.",idle:"Voice on — I speak, then listen."};
-  $("statusText").textContent=map[s]||"Ready";
-  $("statusHint").textContent=hint[s]||"";
-  $("micBtn").classList.toggle("live", s==="listening");
+  $("statusText").textContent = s==="listening"?"Listening":s==="speaking"?"Speaking":s==="thinking"?"Transcribing":s==="review"?"Review":"Ready";
+  $("statusHint").textContent = s==="listening"?"Talk now — pause when you are done.":s==="speaking"?"…":s==="thinking"?"Understanding what was said.":s==="review"?"Submitting in a moment — tap the box to edit first.":"Voice on — I speak, then listen.";
+  $("micBtn").classList.toggle("live", s==="listening"||recording);
 }
-function b64ToBytes(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
-function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onloadend=()=>res(String(r.result).split(",")[1]); r.onerror=rej; r.readAsDataURL(blob); }); }
+function stripSpeak(t){ return (t||"").replace(/[*_#`>~]/g," ").replace(/\s+/g," ").trim(); }
+function b64ToBlob(b64,mime){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return new Blob([a],{type:mime||"audio/mpeg"}); }
+function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onloadend=()=>{ const s=r.result.toString(); res(s.slice(s.indexOf(",")+1)); }; r.onerror=rej; r.readAsDataURL(blob); }); }
 
-async function speak(text, after){
+async function speakPremium(text, after){
   if(!voiceMode){ if(after) after(); return; }
-  if(curAudio){ try{curAudio.pause();}catch(e){} curAudio=null; }
-  speaking=true; setStatus("speaking");
+  setStatus("speaking"); speaking=true;
   try{
-    const d=await api("tts",{text:text});
-    if(d&&d.audio_b64){
-      const blob=new Blob([b64ToBytes(d.audio_b64)],{type:d.mime||"audio/mpeg"});
-      const url=URL.createObjectURL(blob);
-      curAudio=new Audio(url);
-      curAudio.onended=()=>{ speaking=false; URL.revokeObjectURL(url); curAudio=null; if(after) after(); };
-      curAudio.onerror=()=>{ speaking=false; curAudio=null; if(after) after(); };
-      await curAudio.play();
-    } else { speaking=false; if(d&&d.error) toast("Voice: "+d.error); if(after) after(); }
-  }catch(e){ speaking=false; toast("Voice failed: "+(e.message||e)); if(after) after(); }
-}
-
-async function ensureMic(){
-  if(mediaStream) return mediaStream;
-  mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
-  return mediaStream;
-}
-async function recordTurn(){
-  if(recording||speaking) return;
-  if(location.protocol==="file:"){ toast("Mic needs the https link, not a local file."); return; }
-  try{ await ensureMic(); }catch(e){ toast("Allow microphone access to use voice."); setStatus("idle"); return; }
-  recChunks=[];
-  recMime = (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm;codecs=opus"))?"audio/webm;codecs=opus":((window.MediaRecorder&&MediaRecorder.isTypeSupported("audio/webm"))?"audio/webm":"audio/mp4");
-  try{ mediaRec=new MediaRecorder(mediaStream,{mimeType:recMime}); }catch(e){ try{mediaRec=new MediaRecorder(mediaStream);recMime="audio/webm";}catch(e2){ toast("Recording not supported in this browser."); return; } }
-  mediaRec.ondataavailable=(e)=>{ if(e.data&&e.data.size>0) recChunks.push(e.data); };
-  mediaRec.onstop=()=>{ recording=false; stopVAD(); const blob=new Blob(recChunks,{type:recMime}); transcribe(blob); };
-  recording=true; setStatus("listening");
-  try{ mediaRec.start(120); }catch(e){ recording=false; return; }
-  startVAD();
-}
-function stopTurn(){ if(mediaRec && recording){ try{mediaRec.stop();}catch(e){} } }
-function startVAD(){
-  try{
-    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==="suspended") audioCtx.resume();
-    const src=audioCtx.createMediaStreamSource(mediaStream);
-    const an=audioCtx.createAnalyser(); an.fftSize=2048; src.connect(an);
-    const data=new Uint8Array(an.fftSize);
-    let started=false, lastVoice=Date.now(), t0=Date.now();
-    const THRESH=0.014, SIL=1400, NOSPEECH=8000, MAXDUR=45000;
-    const tick=()=>{
-      if(!recording){ return; }
-      an.getByteTimeDomainData(data);
-      let sum=0; for(let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum+=v*v; }
-      const rms=Math.sqrt(sum/data.length), now=Date.now();
-      if(rms>THRESH){ started=true; lastVoice=now; }
-      if(started && now-lastVoice>SIL){ stopTurn(); return; }
-      if(!started && now-t0>NOSPEECH){ stopTurn(); return; }
-      if(now-t0>MAXDUR){ stopTurn(); return; }
-      vadRAF=requestAnimationFrame(tick);
-    };
-    vadRAF=requestAnimationFrame(tick);
-  }catch(e){}
-}
-function stopVAD(){ if(vadRAF) cancelAnimationFrame(vadRAF); vadRAF=null; }
-
-async function transcribe(blob){
-  if(!blob || blob.size<1400){ if(voiceMode){ setStatus("listening"); setTimeout(()=>{ if(voiceMode&&!speaking) recordTurn(); },200);} else setStatus("idle"); return; }
-  setStatus("thinking");
-  try{
-    const b64=await blobToB64(blob);
-    const d=await api("stt",{audio_b64:b64, mime:recMime});
-    if(d&&d.error){ toast("Heard nothing: "+d.error); setStatus("idle"); return; }
-    const text=((d&&d.text)||"").trim();
-    if(!text){ if(voiceMode){ setStatus("listening"); setTimeout(()=>{ if(voiceMode&&!speaking) recordTurn(); },200);} else setStatus("idle"); return; }
-    $("answer").value=text;
-    if(voiceMode){ setStatus("review"); clearTimeout(pendingSubmit); pendingSubmit=setTimeout(()=>{ pendingSubmit=null; send(); }, 2000); }
-  }catch(e){ toast("Transcription failed: "+(e.message||e)); setStatus("idle"); }
-}
-
-function toggleVoice(){
-  voiceMode=!voiceMode;
-  $("voiceBtn").classList.toggle("voiceon", voiceMode);
-  $("voiceBtn").textContent = voiceMode? "🎙 Voice: on":"🎙 Voice: off";
-  if(voiceMode){
-    if(location.protocol==="file:") toast("Voice needs the https link (mic + audio won't work on a local file).");
-    setStatus("idle"); ensureMic().catch(()=>{});
-    if(ST.sessionId && lastQuestion){ speak(lastQuestion, ()=>recordTurn()); }
-  }else{
-    if(curAudio){ try{curAudio.pause();}catch(e){} curAudio=null; } speaking=false;
-    stopTurn(); clearTimeout(pendingSubmit); pendingSubmit=null; setStatus("idle"); $("statusBar").style.display="none";
+    const d=await api("tts",{text});
+    if(!d.audio) throw new Error(d.error||"no audio");
+    const url=URL.createObjectURL(b64ToBlob(d.audio,d.mime));
+    if(audioEl){ try{audioEl.pause();}catch(e){} }
+    audioEl=new Audio(url);
+    audioEl.onended=()=>{ speaking=false; try{URL.revokeObjectURL(url);}catch(e){} if(after) after(); };
+    audioEl.onerror=()=>{ speaking=false; if(after) after(); };
+    await audioEl.play();
+  }catch(e){
+    speaking=false;
+    if('speechSynthesis' in window){ try{ const u=new SpeechSynthesisUtterance(stripSpeak(text)); u.onend=()=>{ if(after)after(); }; u.onerror=()=>{ if(after)after(); }; speechSynthesis.speak(u); return; }catch(_e){} }
+    toast("Voice error: "+e.message); if(after) after();
   }
 }
-function micTap(){ if(!ST.sessionId) return; if(recording){ stopTurn(); return; } recordTurn(); }
+function stopAudio(){ if(audioEl){ try{audioEl.pause();}catch(e){} } if('speechSynthesis' in window){ try{speechSynthesis.cancel();}catch(e){} } speaking=false; }
+
+async function startRecordingVAD(loop){
+  if(recording||speaking) return;
+  if(!navigator.mediaDevices||!window.MediaRecorder){ toast("Voice recording needs Chrome."); setStatus("idle"); return; }
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+  catch(e){ toast("Microphone blocked — allow mic access (address-bar icon)."); setStatus("idle"); return; }
+  mediaStream=stream; chunks=[];
+  let mime="audio/webm";
+  try{ if(window.MediaRecorder.isTypeSupported && !MediaRecorder.isTypeSupported(mime)){ mime=MediaRecorder.isTypeSupported("audio/mp4")?"audio/mp4":""; } }catch(e){ mime=""; }
+  try{ mediaRec = mime? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream); }
+  catch(e){ try{mediaRec=new MediaRecorder(stream);}catch(_e){ toast("Recording unsupported here."); return; } }
+  mediaRec.ondataavailable=(e)=>{ if(e.data&&e.data.size>0) chunks.push(e.data); };
+  mediaRec.onstop=async ()=>{
+    recording=false; $("micBtn").classList.remove("live");
+    try{ mediaStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    try{ if(vadCtx){vadCtx.close();vadCtx=null;} }catch(e){}
+    const blob=new Blob(chunks,{type:(mediaRec.mimeType||mime||"audio/webm")});
+    if(blob.size<1500){ if(loop&&voiceMode){ setTimeout(()=>{ if(voiceMode&&!speaking) startRecordingVAD(true); },200);} else setStatus("idle"); return; }
+    setStatus("thinking");
+    try{
+      const b64=await blobToB64(blob);
+      const d=await api("stt",{audio_base64:b64,mime:blob.type});
+      const text=(d.text||"").trim();
+      if(text){ $("answer").value=text; if(loop&&voiceMode) reviewThenSubmit(); else setStatus("idle"); }
+      else { if(loop&&voiceMode){ setTimeout(()=>{ if(voiceMode&&!speaking) startRecordingVAD(true); },200);} else setStatus("idle"); }
+    }catch(e){ toast("Transcription failed: "+e.message); setStatus("idle"); }
+  };
+  try{
+    vadCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=vadCtx.createMediaStreamSource(stream);
+    const an=vadCtx.createAnalyser(); an.fftSize=1024; src.connect(an);
+    const buf=new Uint8Array(an.fftSize);
+    let spoke=false,lastVoice=Date.now(),t0=Date.now();
+    const tick=()=>{
+      if(!recording) return;
+      an.getByteTimeDomainData(buf);
+      let sum=0; for(let i=0;i<buf.length;i++){ const v=(buf[i]-128)/128; sum+=v*v; }
+      const rms=Math.sqrt(sum/buf.length); const now=Date.now();
+      if(rms>0.022){ spoke=true; lastVoice=now; }
+      if(spoke && now-lastVoice>1400){ try{mediaRec.stop();}catch(e){} return; }
+      if(!spoke && now-t0>9000){ try{mediaRec.stop();}catch(e){} return; }
+      if(now-t0>45000){ try{mediaRec.stop();}catch(e){} return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }catch(e){}
+  recording=true; $("micBtn").classList.add("live"); if(voiceMode) setStatus("listening");
+  try{ mediaRec.start(); }catch(e){ recording=false; toast("Could not start mic."); }
+}
+function reviewThenSubmit(){
+  setStatus("review");
+  clearTimeout(autoTimer);
+  let canceled=false;
+  const onEdit=()=>{ canceled=true; clearTimeout(autoTimer); setStatus("idle"); $("answer").removeEventListener("input",onEdit); };
+  $("answer").addEventListener("input",onEdit);
+  autoTimer=setTimeout(()=>{ $("answer").removeEventListener("input",onEdit); if(!canceled && voiceMode){ send(); } }, 2800);
+}
+function toggleVoice(){
+  voiceMode=!voiceMode;
+  $("voiceBtn").classList.toggle("voiceon",voiceMode);
+  $("voiceBtn").textContent=voiceMode?"🎙 Voice: on":"🎙 Voice: off";
+  if(voiceMode){
+    if(location.protocol==="file:") toast("Voice needs the https link, not a local file.");
+    setStatus("idle");
+    if(ST.sessionId && lastQuestion){ speakPremium(lastQuestion, ()=>startRecordingVAD(true)); }
+  }else{
+    stopAudio(); if(mediaRec&&recording){ try{mediaRec.stop();}catch(e){} } clearTimeout(autoTimer); setStatus("idle"); $("statusBar").style.display="none";
+  }
+}
+function micTap(){
+  if(!ST.sessionId) return;
+  if(speaking){ stopAudio(); startRecordingVAD(voiceMode); return; }
+  if(recording){ try{mediaRec.stop();}catch(e){} return; }
+  startRecordingVAD(false);
+}
 
 /* ===================== APP ===================== */
 async function loadTemplates(){
@@ -281,8 +284,11 @@ function renderSignals(){
   defs.forEach(d=>{ const n=ST.sig[d.key]||0; const row=document.createElement("div"); row.className="sig"; row.innerHTML='<span title="'+escapeHtml(d.label)+'">'+escapeHtml(d.label)+'</span><span class="n'+(n>0?" hot":"")+'">'+n+'</span>'; c.appendChild(row); });
 }
 function addOpp(ins){
-  if(ST.opps===0)$("opps").innerHTML=""; ST.opps++; $("oppCount").textContent="("+ST.opps+")";
-  const d=document.createElement("div"); d.className="opp"; d.innerHTML='<div class="t">'+escapeHtml(ins.title)+'</div>'+(ins.agent_shaped?'<span class="badge agent">agent-shaped</span>':''); $("opps").prepend(d);
+  if(ST.opps===0)$("opps").innerHTML="";
+  ST.opps++; $("oppCount").textContent="("+ST.opps+")";
+  const d=document.createElement("div"); d.className="opp";
+  d.innerHTML='<div class="t">'+escapeHtml(ins.title)+'</div>'+(ins.agent_shaped?'<span class="badge agent">agent-shaped</span>':'');
+  $("opps").prepend(d);
 }
 async function start(){
   const slug=$("tpl").value; if(!slug){toast("Pick a template");return;}
@@ -294,25 +300,25 @@ async function start(){
     bubble("interviewer",d.message); lastQuestion=d.message;
     renderBlocks(); renderSignals();
     $("answer").disabled=false; $("sendBtn").disabled=false; $("micBtn").disabled=false; $("convBtn").disabled=false; $("exportBtn").disabled=false;
-    if(voiceMode){ speak(d.message, ()=>recordTurn()); } else { $("answer").focus(); }
+    if(voiceMode){ speakPremium(d.message, ()=>startRecordingVAD(true)); } else { $("answer").focus(); }
   }catch(e){toast("Start failed: "+e.message);}
   $("startBtn").disabled=false; $("startBtn").textContent="Start";
 }
 async function send(){
   const v=$("answer").value.trim(); if(!v||!ST.sessionId)return;
-  clearTimeout(pendingSubmit); pendingSubmit=null;
   bubble("expert",v); $("answer").value=""; $("answer").disabled=true; $("sendBtn").disabled=true; $("sendBtn").innerHTML='<span class="spin"></span>';
   if(voiceMode) setStatus("thinking");
   try{
     const d=await api("respond",{session_id:ST.sessionId,answer:v});
-    const q=(d.ack?d.ack+" ":"")+(d.next_question||""); bubble("interviewer",q); lastQuestion=q;
+    bubble("interviewer",(d.ack?d.ack+" ":"")+(d.next_question||"")); lastQuestion=(d.ack?d.ack+" ":"")+(d.next_question||"");
     (d.signals||[]).forEach(k=>{ST.sig[k]=(ST.sig[k]||0)+1;});
     if(d.progress&&d.progress.covered){ST.covered=new Set(d.progress.covered);}
     if(d.block_id)ST.covered.add(d.block_id);
-    renderBlocks(); renderSignals(); if(d.insight)addOpp(d.insight);
+    renderBlocks(); renderSignals();
+    if(d.insight)addOpp(d.insight);
     $("answer").disabled=false; $("sendBtn").disabled=false; $("sendBtn").textContent="Send";
-    if(d.done){ toast("All blocks covered — hit Converge → backlog."); if(voiceMode) speak(q+" That covers everything. You can converge to the backlog now.", ()=>setStatus("idle")); }
-    else if(voiceMode){ speak(q, ()=>recordTurn()); }
+    if(d.done){ toast("All blocks covered — hit Converge → backlog."); if(voiceMode) speakPremium(lastQuestion+" That covers everything. You can converge to the backlog now.", ()=>setStatus("idle")); }
+    else if(voiceMode){ speakPremium(lastQuestion, ()=>startRecordingVAD(true)); }
     else { $("answer").focus(); }
   }catch(e){ toast("Respond failed: "+e.message); $("answer").disabled=false; $("sendBtn").disabled=false; $("sendBtn").textContent="Send"; setStatus("idle"); }
 }
@@ -320,14 +326,16 @@ async function converge(){
   $("convBtn").disabled=true; $("convBtn").innerHTML='<span class="spin"></span> Synthesizing';
   try{
     const d=await api("converge",{session_id:ST.sessionId});
-    const dims=(d.rubric||[]).map(x=>x.key); let h="";
+    const dims=(d.rubric||[]).map(x=>x.key);
+    let h="";
     if(!(d.opportunities||[]).length){h='<div class="muted" style="margin-top:14px">'+escapeHtml(d.note||"Nothing captured yet.")+'</div>';}
     else{
       h='<table><thead><tr><th>#</th><th>Opportunity</th><th>Bucket</th><th>Score</th>'+dims.map(x=>'<th>'+x+'</th>').join('')+'<th>First test</th></tr></thead><tbody>';
       (d.opportunities||[]).forEach((o,i)=>{ const sc=o.scores||{};
         h+='<tr><td>'+(i+1)+'</td><td><div style="font-weight:600">'+escapeHtml(o.title)+(o.agent_shaped?' <span class="badge agent">agent</span>':'')+'</div><div class="muted">'+escapeHtml(o.summary||"")+'</div>'+(o.hitl_point?'<div class="muted">↳ sign-off: '+escapeHtml(o.hitl_point)+'</div>':'')+'</td>'+
         '<td><span class="tag '+(o.bucket==="build-now"?"now":o.bucket==="pilot"?"pilot":"park")+'">'+escapeHtml(o.bucket||"")+'</span></td>'+
-        '<td class="score">'+(o.weighted_score!=null?o.weighted_score:"—")+'</td>'+dims.map(x=>'<td>'+(sc[x]!=null?sc[x]:"–")+'</td>').join('')+
+        '<td class="score">'+(o.weighted_score!=null?o.weighted_score:"—")+'</td>'+
+        dims.map(x=>'<td>'+(sc[x]!=null?sc[x]:"–")+'</td>').join('')+
         '<td class="muted">'+escapeHtml(o.first_test||"")+'</td></tr>';
       });
       h+='</tbody></table>';
@@ -363,7 +371,6 @@ $("convBtn").onclick=converge;
 $("exportBtn").onclick=doExport;
 $("newSme").onclick=()=>{$("genModal").style.display="flex";};
 $("genBtn").onclick=genTemplate;
-$("answer").addEventListener("input",()=>{ if(pendingSubmit){ clearTimeout(pendingSubmit); pendingSubmit=null; setStatus("idle"); } });
 $("answer").addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key==="Enter")send();});
 loadTemplates();
 </script>
